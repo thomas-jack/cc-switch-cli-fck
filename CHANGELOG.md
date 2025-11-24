@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.1.0] - 2025-11-25
+
+### Added
+
+- **Interactive Provider Management**: Complete implementation of add/edit provider flows in interactive mode
+  - Full-featured provider creation with validation
+  - In-place provider editing with current values pre-filled
+  - ID column display in provider tables for easier reference
+- **Port Testing**: Added endpoint connectivity testing for API providers
+  - Test reachability of API endpoints before switching
+  - Validates base URLs and ports are accessible
+- **Prompts Deactivate Command**: New `prompts deactivate` command to disable active prompts
+  - Supports multi-app deactivation (Claude/Codex/Gemini)
+  - Removes active prompt files from app directories
+- **Toggle Prompt Mode**: Added ability to switch between prompt switching modes
+  - Configure how prompts are activated and managed
+  - Interactive mode support for toggling settings
+- **Environment Management Commands**: Full implementation of environment variable detection
+  - `env check`: Detect conflicting API keys in system environment
+  - `env list`: List all relevant environment variables by app
+  - Helps identify issues when provider switching doesn't take effect
+- **Delete Commands for Prompts**: Multi-app support for deleting prompts
+  - Delete prompts from all configured apps at once
+  - Proper cleanup of prompt files and configuration
+
+### Changed
+
+- **Interactive Mode Refactoring**: Reorganized into modular structure (~1,254 lines reorganized)
+  - Split into 6 focused submodules: `provider.rs`, `mcp.rs`, `prompts.rs`, `config.rs`, `settings.rs`, `utils.rs`
+  - Improved code maintainability and separation of concerns
+  - Better error handling and user feedback
+- **Command Output Enhancement**: Improved formatting and alignment in command mode
+  - Better table formatting for command-line output
+  - Consistent status indicators and color coding
+- **Backup Management**: Enhanced interactive backup selection and management
+  - Improved backup listing with timestamps
+  - Better restore flow with confirmation prompts
+
+### Fixed
+
+- Command mode table alignment issues in provider display
+- ID column visibility in interactive provider lists
+- Provider add/edit validation edge cases
+
+### Removed
+
+- Environment variable set/unset features (removed for safety)
+  - Users must manually manage environment variables
+  - Tool now focuses on detection only to prevent accidental overwrites
+
+### Technical
+
+- 15 commits since v4.0.1
+- Cargo.toml version updated to 4.1.0
+- Core business logic preserved at 100%
+- All changes maintain backward compatibility with existing configs
+
+---
+
 ## [4.0.2-cli] - 2025-11-24
 
 ### Changed
