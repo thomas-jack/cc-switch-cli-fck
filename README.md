@@ -55,6 +55,19 @@ cc-switch provider list              # List providers
 cc-switch provider switch <id>       # Switch provider
 cc-switch mcp sync                   # Sync MCP servers
 ```
+
+**Multi-App Support**
+
+Use the global `--app` flag to target specific applications:
+
+```bash
+cc-switch --app claude provider list    # Manage Claude providers
+cc-switch --app codex mcp sync          # Sync Codex MCP servers
+cc-switch --app gemini prompts list     # List Gemini prompts
+```
+
+Supported apps: `claude` (default), `codex`, `gemini`
+
 See the "Features" section below for full command list.
 
 ---
@@ -161,7 +174,7 @@ Interactive mode supports English and Chinese, language settings are automatical
 
 ### 🔧 Utilities
 
-Shell completions, environment management, application context switching, and other utilities.
+Shell completions, environment management, and other utilities.
 
 ```bash
 # Shell completions
@@ -172,11 +185,6 @@ cc-switch env check                  # Check for environment conflicts
 cc-switch env list                   # List environment variables
 cc-switch env set <key> <value>      # Set environment variable
 cc-switch env unset <key>            # Unset environment variable
-
-# Application context
-cc-switch app current                # Show current application
-cc-switch app use <app>              # Switch to specific app
-cc-switch app list                   # List all supported apps
 ```
 
 ---

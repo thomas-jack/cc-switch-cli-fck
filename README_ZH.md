@@ -55,6 +55,19 @@ cc-switch provider list              # 列出供应商
 cc-switch provider switch <id>       # 切换供应商
 cc-switch mcp sync                   # 同步 MCP 服务器
 ```
+
+**多应用支持**
+
+使用全局 `--app` 参数来指定目标应用：
+
+```bash
+cc-switch --app claude provider list    # 管理 Claude 供应商
+cc-switch --app codex mcp sync          # 同步 Codex MCP 服务器
+cc-switch --app gemini prompts list     # 列出 Gemini 提示词
+```
+
+支持的应用：`claude`（默认）、`codex`、`gemini`
+
 完整命令列表请参考下方「功能特性」章节。
 
 ---
@@ -161,7 +174,7 @@ cc-switch config reset               # 重置为默认配置
 
 ### 🔧 实用工具
 
-Shell 补全、环境管理、应用上下文切换等实用功能。
+Shell 补全、环境管理等实用功能。
 
 ```bash
 # Shell 补全
@@ -172,11 +185,6 @@ cc-switch env check                  # 检查环境冲突
 cc-switch env list                   # 列出环境变量
 cc-switch env set <key> <value>      # 设置环境变量
 cc-switch env unset <key>            # 取消设置环境变量
-
-# 应用上下文
-cc-switch app current                # 显示当前应用
-cc-switch app use <app>              # 切换到特定应用
-cc-switch app list                   # 列出所有支持的应用
 ```
 
 ---
