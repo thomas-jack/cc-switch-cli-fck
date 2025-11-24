@@ -102,6 +102,102 @@ pub use t;
 pub mod texts {
     use super::is_chinese;
 
+    // ============================================
+    // ENTITY TYPE CONSTANTS (实体类型常量)
+    // ============================================
+
+    pub fn entity_provider() -> &'static str {
+        if is_chinese() { "供应商" } else { "provider" }
+    }
+
+    pub fn entity_server() -> &'static str {
+        if is_chinese() { "服务器" } else { "server" }
+    }
+
+    pub fn entity_prompt() -> &'static str {
+        if is_chinese() { "提示词" } else { "prompt" }
+    }
+
+    // ============================================
+    // GENERIC ENTITY OPERATIONS (通用实体操作)
+    // ============================================
+
+    pub fn entity_added_success(entity_type: &str, name: &str) -> String {
+        if is_chinese() {
+            format!("✓ 成功添加{} '{}'", entity_type, name)
+        } else {
+            format!("✓ Successfully added {} '{}'", entity_type, name)
+        }
+    }
+
+    pub fn entity_updated_success(entity_type: &str, name: &str) -> String {
+        if is_chinese() {
+            format!("✓ 成功更新{} '{}'", entity_type, name)
+        } else {
+            format!("✓ Successfully updated {} '{}'", entity_type, name)
+        }
+    }
+
+    pub fn entity_deleted_success(entity_type: &str, name: &str) -> String {
+        if is_chinese() {
+            format!("✓ 成功删除{} '{}'", entity_type, name)
+        } else {
+            format!("✓ Successfully deleted {} '{}'", entity_type, name)
+        }
+    }
+
+    pub fn entity_not_found(entity_type: &str, id: &str) -> String {
+        if is_chinese() {
+            format!("{}不存在: {}", entity_type, id)
+        } else {
+            format!("{} not found: {}", entity_type, id)
+        }
+    }
+
+    pub fn confirm_create_entity(entity_type: &str) -> String {
+        if is_chinese() {
+            format!("\n确认创建此{}？", entity_type)
+        } else {
+            format!("\nConfirm create this {}?", entity_type)
+        }
+    }
+
+    pub fn confirm_update_entity(entity_type: &str) -> String {
+        if is_chinese() {
+            format!("\n确认更新此{}？", entity_type)
+        } else {
+            format!("\nConfirm update this {}?", entity_type)
+        }
+    }
+
+    pub fn confirm_delete_entity(entity_type: &str, name: &str) -> String {
+        if is_chinese() {
+            format!("\n确认删除{} '{}'？", entity_type, name)
+        } else {
+            format!("\nConfirm delete {} '{}'?", entity_type, name)
+        }
+    }
+
+    pub fn select_to_delete_entity(entity_type: &str) -> String {
+        if is_chinese() {
+            format!("选择要删除的{}：", entity_type)
+        } else {
+            format!("Select {} to delete:", entity_type)
+        }
+    }
+
+    pub fn no_entities_to_delete(entity_type: &str) -> String {
+        if is_chinese() {
+            format!("没有可删除的{}", entity_type)
+        } else {
+            format!("No {} available for deletion", entity_type)
+        }
+    }
+
+    // ============================================
+    // COMMON UI ELEMENTS (通用界面元素)
+    // ============================================
+
     // Welcome & Headers
     pub fn welcome_title() -> &'static str {
         if is_chinese() {
@@ -200,7 +296,10 @@ pub mod texts {
         }
     }
 
-    // Provider Management
+    // ============================================
+    // PROVIDER MANAGEMENT (供应商管理)
+    // ============================================
+
     pub fn provider_management() -> &'static str {
         if is_chinese() {
             "🔌 供应商管理"
@@ -353,7 +452,945 @@ pub mod texts {
         }
     }
 
-    // MCP Management
+    // Provider Input - Basic Fields
+    pub fn provider_name_label() -> &'static str {
+        if is_chinese() {
+            "供应商名称："
+        } else {
+            "Provider Name:"
+        }
+    }
+
+    pub fn provider_name_help() -> &'static str {
+        if is_chinese() {
+            "必填，用于显示的友好名称"
+        } else {
+            "Required, friendly display name"
+        }
+    }
+
+    pub fn provider_name_help_edit() -> &'static str {
+        if is_chinese() {
+            "必填，直接回车保持原值"
+        } else {
+            "Required, press Enter to keep"
+        }
+    }
+
+    pub fn provider_name_placeholder() -> &'static str {
+        "OpenAI"
+    }
+
+    pub fn provider_name_empty_error() -> &'static str {
+        if is_chinese() {
+            "供应商名称不能为空"
+        } else {
+            "Provider name cannot be empty"
+        }
+    }
+
+    pub fn website_url_label() -> &'static str {
+        if is_chinese() {
+            "官网 URL（可选）："
+        } else {
+            "Website URL (optional):"
+        }
+    }
+
+    pub fn website_url_help() -> &'static str {
+        if is_chinese() {
+            "供应商的网站地址，直接回车跳过"
+        } else {
+            "Provider's website, press Enter to skip"
+        }
+    }
+
+    pub fn website_url_help_edit() -> &'static str {
+        if is_chinese() {
+            "留空则不修改，直接回车跳过"
+        } else {
+            "Leave blank to keep, Enter to skip"
+        }
+    }
+
+    pub fn website_url_placeholder() -> &'static str {
+        "https://openai.com"
+    }
+
+    // Provider Commands
+    pub fn no_providers_hint() -> &'static str {
+        "Use 'cc-switch provider add' to create a new provider."
+    }
+
+    pub fn app_config_not_found(app: &str) -> String {
+        if is_chinese() {
+            format!("应用 {} 配置不存在", app)
+        } else {
+            format!("Application {} configuration not found", app)
+        }
+    }
+
+    pub fn provider_not_found(id: &str) -> String {
+        if is_chinese() {
+            format!("供应商不存在: {}", id)
+        } else {
+            format!("Provider not found: {}", id)
+        }
+    }
+
+    pub fn generated_id(id: &str) -> String {
+        if is_chinese() {
+            format!("生成的 ID: {}", id)
+        } else {
+            format!("Generated ID: {}", id)
+        }
+    }
+
+    pub fn configure_optional_fields_prompt() -> &'static str {
+        if is_chinese() {
+            "配置可选字段（备注、排序索引）？"
+        } else {
+            "Configure optional fields (notes, sort index)?"
+        }
+    }
+
+    pub fn current_config_header() -> &'static str {
+        if is_chinese() {
+            "当前配置："
+        } else {
+            "Current Configuration:"
+        }
+    }
+
+    pub fn modify_provider_config_prompt() -> &'static str {
+        if is_chinese() {
+            "修改供应商配置（API Key, Base URL 等）？"
+        } else {
+            "Modify provider configuration (API Key, Base URL, etc.)?"
+        }
+    }
+
+    pub fn modify_optional_fields_prompt() -> &'static str {
+        if is_chinese() {
+            "修改可选字段（备注、排序索引）？"
+        } else {
+            "Modify optional fields (notes, sort index)?"
+        }
+    }
+
+    pub fn current_provider_synced_warning() -> &'static str {
+        if is_chinese() {
+            "⚠ 此供应商当前已激活，修改已同步到 live 配置"
+        } else {
+            "⚠ This provider is currently active, changes synced to live config"
+        }
+    }
+
+    pub fn input_failed_error(err: &str) -> String {
+        if is_chinese() {
+            format!("输入失败: {}", err)
+        } else {
+            format!("Input failed: {}", err)
+        }
+    }
+
+    pub fn cannot_delete_current_provider() -> &'static str {
+        "Cannot delete the current active provider. Please switch to another provider first."
+    }
+
+    // Provider Input - Basic Fields
+    pub fn provider_name_prompt() -> &'static str {
+        if is_chinese() {
+            "供应商名称："
+        } else {
+            "Provider Name:"
+        }
+    }
+
+    // Provider Input - Claude Configuration
+    pub fn config_claude_header() -> &'static str {
+        if is_chinese() {
+            "配置 Claude 供应商："
+        } else {
+            "Configure Claude Provider:"
+        }
+    }
+
+    pub fn api_key_label() -> &'static str {
+        if is_chinese() {
+            "API Key："
+        } else {
+            "API Key:"
+        }
+    }
+
+    pub fn api_key_help() -> &'static str {
+        if is_chinese() {
+            "留空使用默认值"
+        } else {
+            "Leave empty to use default"
+        }
+    }
+
+    pub fn base_url_label() -> &'static str {
+        if is_chinese() {
+            "Base URL："
+        } else {
+            "Base URL:"
+        }
+    }
+
+    pub fn base_url_placeholder() -> &'static str {
+        if is_chinese() {
+            "如 https://api.anthropic.com"
+        } else {
+            "e.g., https://api.anthropic.com"
+        }
+    }
+
+    pub fn configure_model_names_prompt() -> &'static str {
+        if is_chinese() {
+            "配置模型名称？"
+        } else {
+            "Configure model names?"
+        }
+    }
+
+    pub fn model_default_label() -> &'static str {
+        if is_chinese() {
+            "默认模型："
+        } else {
+            "Default Model:"
+        }
+    }
+
+    pub fn model_default_help() -> &'static str {
+        if is_chinese() {
+            "留空使用 Claude Code 默认模型"
+        } else {
+            "Leave empty to use Claude Code default"
+        }
+    }
+
+    pub fn model_haiku_label() -> &'static str {
+        if is_chinese() {
+            "Haiku 模型："
+        } else {
+            "Haiku Model:"
+        }
+    }
+
+    pub fn model_haiku_placeholder() -> &'static str {
+        if is_chinese() {
+            "如 claude-3-5-haiku-20241022"
+        } else {
+            "e.g., claude-3-5-haiku-20241022"
+        }
+    }
+
+    pub fn model_sonnet_label() -> &'static str {
+        if is_chinese() {
+            "Sonnet 模型："
+        } else {
+            "Sonnet Model:"
+        }
+    }
+
+    pub fn model_sonnet_placeholder() -> &'static str {
+        if is_chinese() {
+            "如 claude-3-5-sonnet-20241022"
+        } else {
+            "e.g., claude-3-5-sonnet-20241022"
+        }
+    }
+
+    pub fn model_opus_label() -> &'static str {
+        if is_chinese() {
+            "Opus 模型："
+        } else {
+            "Opus Model:"
+        }
+    }
+
+    pub fn model_opus_placeholder() -> &'static str {
+        if is_chinese() {
+            "如 claude-3-opus-20240229"
+        } else {
+            "e.g., claude-3-opus-20240229"
+        }
+    }
+
+    // Provider Input - Codex Configuration
+    pub fn config_codex_header() -> &'static str {
+        if is_chinese() {
+            "配置 Codex 供应商："
+        } else {
+            "Configure Codex Provider:"
+        }
+    }
+
+    pub fn openai_api_key_label() -> &'static str {
+        if is_chinese() {
+            "OpenAI API Key："
+        } else {
+            "OpenAI API Key:"
+        }
+    }
+
+    pub fn anthropic_api_key_label() -> &'static str {
+        if is_chinese() {
+            "Anthropic API Key："
+        } else {
+            "Anthropic API Key:"
+        }
+    }
+
+    pub fn config_toml_label() -> &'static str {
+        if is_chinese() {
+            "配置内容 (TOML)："
+        } else {
+            "Config Content (TOML):"
+        }
+    }
+
+    pub fn config_toml_help() -> &'static str {
+        if is_chinese() {
+            "按 Esc 后 Enter 提交"
+        } else {
+            "Press Esc then Enter to submit"
+        }
+    }
+
+    pub fn config_toml_placeholder() -> &'static str {
+        if is_chinese() {
+            "留空使用默认配置"
+        } else {
+            "Leave empty to use default config"
+        }
+    }
+
+    pub fn use_current_config_prompt() -> &'static str {
+        if is_chinese() {
+            "使用当前配置？"
+        } else {
+            "Use current configuration?"
+        }
+    }
+
+    pub fn use_current_config_help() -> &'static str {
+        if is_chinese() {
+            "选择 No 将进入自定义输入模式"
+        } else {
+            "Select No to enter custom input mode"
+        }
+    }
+
+    pub fn input_toml_config() -> &'static str {
+        if is_chinese() {
+            "输入 TOML 配置（多行，输入空行结束）："
+        } else {
+            "Enter TOML config (multiple lines, empty line to finish):"
+        }
+    }
+
+    pub fn direct_enter_to_finish() -> &'static str {
+        if is_chinese() {
+            "直接回车结束输入"
+        } else {
+            "Press Enter to finish"
+        }
+    }
+
+    pub fn current_config_label() -> &'static str {
+        if is_chinese() {
+            "当前配置："
+        } else {
+            "Current Config:"
+        }
+    }
+
+    pub fn config_toml_header() -> &'static str {
+        if is_chinese() {
+            "Config.toml 配置："
+        } else {
+            "Config.toml Configuration:"
+        }
+    }
+
+    // Provider Input - Gemini Configuration
+    pub fn config_gemini_header() -> &'static str {
+        if is_chinese() {
+            "配置 Gemini 供应商："
+        } else {
+            "Configure Gemini Provider:"
+        }
+    }
+
+    pub fn auth_type_label() -> &'static str {
+        if is_chinese() {
+            "认证类型："
+        } else {
+            "Auth Type:"
+        }
+    }
+
+    pub fn auth_type_api_key() -> &'static str {
+        if is_chinese() {
+            "API Key"
+        } else {
+            "API Key"
+        }
+    }
+
+    pub fn auth_type_service_account() -> &'static str {
+        if is_chinese() {
+            "Service Account (ADC)"
+        } else {
+            "Service Account (ADC)"
+        }
+    }
+
+    pub fn gemini_api_key_label() -> &'static str {
+        if is_chinese() {
+            "Gemini API Key："
+        } else {
+            "Gemini API Key:"
+        }
+    }
+
+    pub fn gemini_base_url_label() -> &'static str {
+        if is_chinese() {
+            "Base URL："
+        } else {
+            "Base URL:"
+        }
+    }
+
+    pub fn gemini_base_url_help() -> &'static str {
+        if is_chinese() {
+            "留空使用官方 API"
+        } else {
+            "Leave empty to use official API"
+        }
+    }
+
+    pub fn gemini_base_url_placeholder() -> &'static str {
+        if is_chinese() {
+            "如 https://generativelanguage.googleapis.com"
+        } else {
+            "e.g., https://generativelanguage.googleapis.com"
+        }
+    }
+
+    pub fn adc_project_id_label() -> &'static str {
+        if is_chinese() {
+            "GCP Project ID："
+        } else {
+            "GCP Project ID:"
+        }
+    }
+
+    pub fn adc_location_label() -> &'static str {
+        if is_chinese() {
+            "GCP Location："
+        } else {
+            "GCP Location:"
+        }
+    }
+
+    pub fn adc_location_placeholder() -> &'static str {
+        if is_chinese() {
+            "如 us-central1"
+        } else {
+            "e.g., us-central1"
+        }
+    }
+
+    pub fn google_oauth_official() -> &'static str {
+        if is_chinese() {
+            "Google OAuth（官方）"
+        } else {
+            "Google OAuth (Official)"
+        }
+    }
+
+    pub fn packycode_api_key() -> &'static str {
+        if is_chinese() {
+            "PackyCode API Key"
+        } else {
+            "PackyCode API Key"
+        }
+    }
+
+    pub fn generic_api_key() -> &'static str {
+        if is_chinese() {
+            "通用 API Key"
+        } else {
+            "Generic API Key"
+        }
+    }
+
+    pub fn select_auth_method_help() -> &'static str {
+        if is_chinese() {
+            "选择 Gemini 的认证方式"
+        } else {
+            "Select authentication method for Gemini"
+        }
+    }
+
+    pub fn use_google_oauth_warning() -> &'static str {
+        if is_chinese() {
+            "使用 Google OAuth，将清空 API Key 配置"
+        } else {
+            "Using Google OAuth, API Key config will be cleared"
+        }
+    }
+
+    pub fn packycode_api_key_help() -> &'static str {
+        if is_chinese() {
+            "从 PackyCode 获取的 API Key"
+        } else {
+            "API Key obtained from PackyCode"
+        }
+    }
+
+    pub fn packycode_endpoint_help() -> &'static str {
+        if is_chinese() {
+            "PackyCode API 端点"
+        } else {
+            "PackyCode API endpoint"
+        }
+    }
+
+    pub fn generic_api_key_help() -> &'static str {
+        if is_chinese() {
+            "通用的 Gemini API Key"
+        } else {
+            "Generic Gemini API Key"
+        }
+    }
+
+    // Provider Input - Optional Fields
+    pub fn notes_label() -> &'static str {
+        if is_chinese() {
+            "备注："
+        } else {
+            "Notes:"
+        }
+    }
+
+    pub fn notes_placeholder() -> &'static str {
+        if is_chinese() {
+            "可选的备注信息"
+        } else {
+            "Optional notes"
+        }
+    }
+
+    pub fn sort_index_label() -> &'static str {
+        if is_chinese() {
+            "排序索引："
+        } else {
+            "Sort Index:"
+        }
+    }
+
+    pub fn sort_index_help() -> &'static str {
+        if is_chinese() {
+            "数字越小越靠前，留空使用创建时间排序"
+        } else {
+            "Lower numbers appear first, leave empty to sort by creation time"
+        }
+    }
+
+    pub fn sort_index_placeholder() -> &'static str {
+        if is_chinese() {
+            "如 1, 2, 3..."
+        } else {
+            "e.g., 1, 2, 3..."
+        }
+    }
+
+    pub fn invalid_sort_index() -> &'static str {
+        if is_chinese() {
+            "排序索引必须是有效的数字"
+        } else {
+            "Sort index must be a valid number"
+        }
+    }
+
+    pub fn optional_fields_config() -> &'static str {
+        if is_chinese() {
+            "可选字段配置："
+        } else {
+            "Optional Fields Configuration:"
+        }
+    }
+
+    pub fn notes_example_placeholder() -> &'static str {
+        if is_chinese() {
+            "自定义供应商，用于测试"
+        } else {
+            "Custom provider for testing"
+        }
+    }
+
+    pub fn notes_help_edit() -> &'static str {
+        if is_chinese() {
+            "关于此供应商的额外说明，直接回车保持原值"
+        } else {
+            "Additional notes about this provider, press Enter to keep current value"
+        }
+    }
+
+    pub fn notes_help_new() -> &'static str {
+        if is_chinese() {
+            "关于此供应商的额外说明，直接回车跳过"
+        } else {
+            "Additional notes about this provider, press Enter to skip"
+        }
+    }
+
+    pub fn sort_index_help_edit() -> &'static str {
+        if is_chinese() {
+            "数字，用于控制显示顺序，直接回车保持原值"
+        } else {
+            "Number for display order, press Enter to keep current value"
+        }
+    }
+
+    pub fn sort_index_help_new() -> &'static str {
+        if is_chinese() {
+            "数字，用于控制显示顺序，直接回车跳过"
+        } else {
+            "Number for display order, press Enter to skip"
+        }
+    }
+
+    pub fn invalid_sort_index_number() -> &'static str {
+        if is_chinese() {
+            "排序索引必须是数字"
+        } else {
+            "Sort index must be a number"
+        }
+    }
+
+    pub fn provider_config_summary() -> &'static str {
+        if is_chinese() {
+            "=== 供应商配置摘要 ==="
+        } else {
+            "=== Provider Configuration Summary ==="
+        }
+    }
+
+    pub fn id_label() -> &'static str {
+        if is_chinese() {
+            "ID"
+        } else {
+            "ID"
+        }
+    }
+
+    pub fn website_label() -> &'static str {
+        if is_chinese() {
+            "官网"
+        } else {
+            "Website"
+        }
+    }
+
+    pub fn core_config_label() -> &'static str {
+        if is_chinese() {
+            "核心配置："
+        } else {
+            "Core Configuration:"
+        }
+    }
+
+    pub fn model_label() -> &'static str {
+        if is_chinese() {
+            "模型"
+        } else {
+            "Model"
+        }
+    }
+
+    pub fn config_toml_lines(count: usize) -> String {
+        if is_chinese() {
+            format!("Config (TOML): {} 行", count)
+        } else {
+            format!("Config (TOML): {} lines", count)
+        }
+    }
+
+    pub fn optional_fields_label() -> &'static str {
+        if is_chinese() {
+            "可选字段："
+        } else {
+            "Optional Fields:"
+        }
+    }
+
+    pub fn notes_label_colon() -> &'static str {
+        if is_chinese() {
+            "备注"
+        } else {
+            "Notes"
+        }
+    }
+
+    pub fn sort_index_label_colon() -> &'static str {
+        if is_chinese() {
+            "排序索引"
+        } else {
+            "Sort Index"
+        }
+    }
+
+    pub fn summary_divider() -> &'static str {
+        "======================"
+    }
+
+    // Provider Input - Summary Display
+    pub fn basic_info_header() -> &'static str {
+        if is_chinese() {
+            "基本信息"
+        } else {
+            "Basic Info"
+        }
+    }
+
+    pub fn name_display_label() -> &'static str {
+        if is_chinese() {
+            "名称"
+        } else {
+            "Name"
+        }
+    }
+
+    pub fn app_display_label() -> &'static str {
+        if is_chinese() {
+            "应用"
+        } else {
+            "App"
+        }
+    }
+
+    pub fn notes_display_label() -> &'static str {
+        if is_chinese() {
+            "备注"
+        } else {
+            "Notes"
+        }
+    }
+
+    pub fn sort_index_display_label() -> &'static str {
+        if is_chinese() {
+            "排序"
+        } else {
+            "Sort Index"
+        }
+    }
+
+    pub fn config_info_header() -> &'static str {
+        if is_chinese() {
+            "配置信息"
+        } else {
+            "Configuration"
+        }
+    }
+
+    pub fn api_key_display_label() -> &'static str {
+        if is_chinese() {
+            "API Key"
+        } else {
+            "API Key"
+        }
+    }
+
+    pub fn base_url_display_label() -> &'static str {
+        if is_chinese() {
+            "Base URL"
+        } else {
+            "Base URL"
+        }
+    }
+
+    pub fn model_config_header() -> &'static str {
+        if is_chinese() {
+            "模型配置"
+        } else {
+            "Model Configuration"
+        }
+    }
+
+    pub fn default_model_display() -> &'static str {
+        if is_chinese() {
+            "默认"
+        } else {
+            "Default"
+        }
+    }
+
+    pub fn haiku_model_display() -> &'static str {
+        if is_chinese() {
+            "Haiku"
+        } else {
+            "Haiku"
+        }
+    }
+
+    pub fn sonnet_model_display() -> &'static str {
+        if is_chinese() {
+            "Sonnet"
+        } else {
+            "Sonnet"
+        }
+    }
+
+    pub fn opus_model_display() -> &'static str {
+        if is_chinese() {
+            "Opus"
+        } else {
+            "Opus"
+        }
+    }
+
+    pub fn auth_type_display_label() -> &'static str {
+        if is_chinese() {
+            "认证"
+        } else {
+            "Auth Type"
+        }
+    }
+
+    pub fn project_id_display_label() -> &'static str {
+        if is_chinese() {
+            "项目 ID"
+        } else {
+            "Project ID"
+        }
+    }
+
+    pub fn location_display_label() -> &'static str {
+        if is_chinese() {
+            "位置"
+        } else {
+            "Location"
+        }
+    }
+
+    // Interactive Provider - Menu Options
+    pub fn edit_provider_menu() -> &'static str {
+        if is_chinese() {
+            "➕ 编辑供应商"
+        } else {
+            "➕ Edit Provider"
+        }
+    }
+
+    pub fn no_editable_providers() -> &'static str {
+        if is_chinese() {
+            "没有可编辑的供应商"
+        } else {
+            "No providers available for editing"
+        }
+    }
+
+    pub fn select_provider_to_edit() -> &'static str {
+        if is_chinese() {
+            "选择要编辑的供应商："
+        } else {
+            "Select provider to edit:"
+        }
+    }
+
+    pub fn invalid_selection_format() -> &'static str {
+        if is_chinese() {
+            "无效的选择格式"
+        } else {
+            "Invalid selection format"
+        }
+    }
+
+    // Provider Display Labels (for show_current and view_provider_detail)
+    pub fn basic_info_section_header() -> &'static str {
+        if is_chinese() {
+            "基本信息 / Basic Info"
+        } else {
+            "Basic Info"
+        }
+    }
+
+    pub fn name_label_with_colon() -> &'static str {
+        if is_chinese() {
+            "名称"
+        } else {
+            "Name"
+        }
+    }
+
+    pub fn app_label_with_colon() -> &'static str {
+        if is_chinese() {
+            "应用"
+        } else {
+            "App"
+        }
+    }
+
+    pub fn api_config_section_header() -> &'static str {
+        if is_chinese() {
+            "API 配置 / API Configuration"
+        } else {
+            "API Configuration"
+        }
+    }
+
+    pub fn model_config_section_header() -> &'static str {
+        if is_chinese() {
+            "模型配置 / Model Configuration"
+        } else {
+            "Model Configuration"
+        }
+    }
+
+    pub fn main_model_label_with_colon() -> &'static str {
+        if is_chinese() {
+            "主模型"
+        } else {
+            "Main Model"
+        }
+    }
+
+    pub fn updated_config_header() -> &'static str {
+        if is_chinese() {
+            "修改后配置："
+        } else {
+            "Updated Configuration:"
+        }
+    }
+
+    // Provider Add/Edit Messages
+    pub fn generated_id_message(id: &str) -> String {
+        if is_chinese() {
+            format!("生成的 ID: {}", id)
+        } else {
+            format!("Generated ID: {}", id)
+        }
+    }
+
+    pub fn edit_fields_instruction() -> &'static str {
+        if is_chinese() {
+            "逐个编辑字段（直接回车保留当前值）：\n"
+        } else {
+            "Edit fields one by one (press Enter to keep current value):\n"
+        }
+    }
+
+    // ============================================
+    // MCP SERVER MANAGEMENT (MCP 服务器管理)
+    // ============================================
+
     pub fn mcp_management() -> &'static str {
         if is_chinese() {
             "🛠️  MCP 服务器管理"
@@ -386,7 +1423,10 @@ pub mod texts {
         }
     }
 
-    // Prompts Management
+    // ============================================
+    // PROMPT MANAGEMENT (提示词管理)
+    // ============================================
+
     pub fn prompts_management() -> &'static str {
         if is_chinese() {
             "💬 提示词管理"

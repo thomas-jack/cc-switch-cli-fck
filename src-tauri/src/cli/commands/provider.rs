@@ -2,10 +2,17 @@ use clap::Subcommand;
 use std::sync::RwLock;
 
 use crate::app_config::{AppType, MultiAppConfig};
-use crate::cli::ui::{create_table, error, highlight, info, success};
+use crate::cli::commands::provider_input::{
+    current_timestamp, display_provider_summary, generate_provider_id,
+    prompt_basic_fields, prompt_optional_fields, prompt_settings_config, OptionalFields,
+};
+use crate::cli::i18n::texts;
+use crate::cli::ui::{create_table, error, highlight, info, success, warning};
 use crate::error::AppError;
+use crate::provider::Provider;
 use crate::services::{ProviderService, SpeedtestService};
 use crate::store::AppState;
+use inquire::Confirm;
 
 #[derive(Subcommand)]
 pub enum ProviderCommand {
@@ -72,7 +79,7 @@ fn list_providers(app_type: AppType) -> Result<(), AppError> {
 
     if providers.is_empty() {
         println!("{}", info("No providers found."));
-        println!("Use 'cc-switch provider add' to create a new provider.");
+        println!("{}", texts::no_providers_hint());
         return Ok(());
     }
 
@@ -125,17 +132,17 @@ fn show_current(app_type: AppType) -> Result<(), AppError> {
     println!("{}", "═".repeat(60));
 
     // 基本信息
-    println!("\n{}", highlight("基本信息 / Basic Info"));
+    println!("\n{}", highlight(texts::basic_info_section_header()));
     println!("  ID:       {}", current_id);
-    println!("  名称:     {}", provider.name);
-    println!("  应用:     {}", app_type.as_str());
+    println!("  {}:     {}", texts::name_label_with_colon(), provider.name);
+    println!("  {}:     {}", texts::app_label_with_colon(), app_type.as_str());
 
     // 仅 Claude 应用显示详细配置
     if matches!(app_type, AppType::Claude) {
         let config = extract_claude_config(&provider.settings_config);
 
         // API 配置
-        println!("\n{}", highlight("API 配置 / API Configuration"));
+        println!("\n{}", highlight(texts::api_config_section_header()));
         println!(
             "  Base URL: {}",
             config.base_url.unwrap_or_else(|| "N/A".to_string())
@@ -146,9 +153,10 @@ fn show_current(app_type: AppType) -> Result<(), AppError> {
         );
 
         // 模型配置
-        println!("\n{}", highlight("模型配置 / Model Configuration"));
+        println!("\n{}", highlight(texts::model_config_section_header()));
         println!(
-            "  主模型:   {}",
+            "  {}:   {}",
+            texts::main_model_label_with_colon(),
             config.model.unwrap_or_else(|| "default".to_string())
         );
         println!(
@@ -233,39 +241,174 @@ fn delete_provider(app_type: AppType, id: &str) -> Result<(), AppError> {
     Ok(())
 }
 
-fn add_provider(_app_type: AppType) -> Result<(), AppError> {
+fn add_provider(app_type: AppType) -> Result<(), AppError> {
     println!("{}", highlight("Add New Provider"));
     println!("{}", "=".repeat(50));
 
-    // 交互式输入
-    let _name = inquire::Text::new("Provider name:")
-        .prompt()
-        .map_err(|e| AppError::Message(format!("Prompt failed: {}", e)))?;
+    // 1. 加载配置和状态
+    let state = AppState {
+        config: RwLock::new(MultiAppConfig::load()?),
+    };
+    let config = state.config.read().unwrap();
+    let manager = config
+        .get_manager(&app_type)
+        .ok_or_else(|| AppError::Message(texts::app_config_not_found(app_type.as_str())))?;
+    let existing_ids: Vec<String> = manager.providers.keys().cloned().collect();
+    drop(config);
 
-    println!(
-        "\n{}",
-        info("Note: Provider configuration is complex and varies by app type.")
-    );
-    println!(
-        "{}",
-        info("For now, please use the config file directly to add detailed settings.")
-    );
-    println!(
-        "\n{}",
-        error("Interactive provider creation is not yet fully implemented.")
-    );
-    println!("{}", info("Coming soon in the next update!"));
+    // 2. 收集基本字段
+    let (name, website_url) = prompt_basic_fields(None)?;
+    let id = generate_provider_id(&name, &existing_ids);
+    println!("{}", info(&texts::generated_id_message(&id)));
+
+    // 3. 收集配置
+    let settings_config = prompt_settings_config(&app_type, None)?;
+
+    // 4. 询问是否配置可选字段
+    let optional = if Confirm::new(texts::configure_optional_fields_prompt())
+        .with_default(false)
+        .prompt()
+        .map_err(|e| AppError::Message(texts::input_failed_error(&e.to_string())))?
+    {
+        prompt_optional_fields(None)?
+    } else {
+        OptionalFields::default()
+    };
+
+    // 5. 构建 Provider 对象
+    let provider = Provider {
+        id: id.clone(),
+        name,
+        settings_config,
+        website_url,
+        category: None,
+        created_at: Some(current_timestamp()),
+        sort_index: optional.sort_index,
+        notes: optional.notes,
+        icon: None,
+        icon_color: None,
+        meta: None,
+    };
+
+    // 6. 显示摘要并确认
+    display_provider_summary(&provider, &app_type);
+    if !Confirm::new(&texts::confirm_create_entity(texts::entity_provider()))
+        .with_default(false)
+        .prompt()
+        .map_err(|e| AppError::Message(texts::input_failed_error(&e.to_string())))?
+    {
+        println!("{}", info(texts::cancelled()));
+        return Ok(());
+    }
+
+    // 7. 调用 Service 层
+    ProviderService::add(&state, app_type.clone(), provider)?;
+
+    // 8. 成功消息
+    println!("\n{}", success(&texts::entity_added_success(texts::entity_provider(), &id)));
 
     Ok(())
 }
 
-fn edit_provider(_app_type: AppType, id: &str) -> Result<(), AppError> {
-    println!("{}", info(&format!("Editing provider '{}'...", id)));
-    println!("{}", error("Provider editing is not yet implemented."));
-    println!(
-        "{}",
-        info("Please edit ~/.cc-switch/config.json directly for now.")
-    );
+fn edit_provider(app_type: AppType, id: &str) -> Result<(), AppError> {
+    println!("{}", highlight(&format!("Edit Provider: {}", id)));
+    println!("{}", "=".repeat(50));
+
+    // 1. 加载并验证供应商存在
+    let state = AppState {
+        config: RwLock::new(MultiAppConfig::load()?),
+    };
+    let config = state.config.read().unwrap();
+    let manager = config
+        .get_manager(&app_type)
+        .ok_or_else(|| AppError::Message(texts::app_config_not_found(app_type.as_str())))?;
+    let original = manager
+        .providers
+        .get(id)
+        .ok_or_else(|| {
+            let msg = texts::entity_not_found(texts::entity_provider(), id);
+            AppError::localized(
+                "provider.not_found",
+                msg.clone(),
+                msg,
+            )
+        })?
+        .clone();
+    let is_current = manager.current == id;
+    drop(config);
+
+    // 2. 显示当前配置
+    println!("\n{}", highlight(texts::current_config_header()));
+    display_provider_summary(&original, &app_type);
+    println!();
+
+    // 3. 全量编辑各字段（使用当前值作为默认）
+    println!("{}", info(texts::edit_fields_instruction()));
+
+    // 调用 prompt_basic_fields 来处理基本字段输入（自动使用 initial_value）
+    let (name, website_url) = prompt_basic_fields(Some(&original))?;
+
+    // 4. 询问是否修改配置
+    let settings_config = if Confirm::new(texts::modify_provider_config_prompt())
+        .with_default(false)
+        .prompt()
+        .map_err(|e| AppError::Message(texts::input_failed_error(&e.to_string())))?
+    {
+        prompt_settings_config(&app_type, Some(&original.settings_config))?
+    } else {
+        original.settings_config.clone()
+    };
+
+    // 5. 询问是否修改可选字段
+    let optional = if Confirm::new(texts::modify_optional_fields_prompt())
+        .with_default(false)
+        .prompt()
+        .map_err(|e| AppError::Message(texts::input_failed_error(&e.to_string())))?
+    {
+        prompt_optional_fields(Some(&original))?
+    } else {
+        OptionalFields::from_provider(&original)
+    };
+
+    // 6. 构建更新后的 Provider（保留 meta 和 created_at）
+    let updated = Provider {
+        id: id.to_string(),
+        name: name.trim().to_string(),
+        settings_config,
+        website_url,
+        category: None,
+        created_at: original.created_at,
+        sort_index: optional.sort_index,
+        notes: optional.notes,
+        icon: None,
+        icon_color: None,
+        meta: original.meta, // 保留元数据
+    };
+
+    // 7. 显示修改摘要并确认
+    println!("\n{}", highlight(texts::updated_config_header()));
+    display_provider_summary(&updated, &app_type);
+    if !Confirm::new(&texts::confirm_update_entity(texts::entity_provider()))
+        .with_default(false)
+        .prompt()
+        .map_err(|e| AppError::Message(texts::input_failed_error(&e.to_string())))?
+    {
+        println!("{}", info(texts::cancelled()));
+        return Ok(());
+    }
+
+    // 8. 调用 Service 层
+    ProviderService::update(&state, app_type.clone(), updated)?;
+
+    // 9. 成功消息
+    println!("\n{}", success(&texts::entity_updated_success(texts::entity_provider(), id)));
+    if is_current {
+        println!(
+            "{}",
+            warning(texts::current_provider_synced_warning())
+        );
+    }
+
     Ok(())
 }
 

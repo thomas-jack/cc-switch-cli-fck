@@ -1,4 +1,4 @@
-use inquire::{Confirm, Select, Text};
+use inquire::{Confirm, Select};
 
 use crate::app_config::AppType;
 use crate::cli::i18n::texts;
@@ -53,6 +53,7 @@ pub fn manage_providers_menu(app_type: &AppType) -> Result<(), AppError> {
             texts::view_current_provider(),
             texts::switch_provider(),
             texts::add_provider(),
+            texts::edit_provider_menu(),
             texts::delete_provider(),
             texts::back_to_main(),
         ];
@@ -67,6 +68,8 @@ pub fn manage_providers_menu(app_type: &AppType) -> Result<(), AppError> {
             switch_provider_interactive(&state, app_type, &providers, &current_id)?;
         } else if choice == texts::add_provider() {
             add_provider_interactive(app_type)?;
+        } else if choice == texts::edit_provider_menu() {
+            edit_provider_interactive(app_type, &providers)?;
         } else if choice == texts::delete_provider() {
             delete_provider_interactive(&state, app_type, &providers, &current_id)?;
         } else {
@@ -89,17 +92,17 @@ fn view_provider_detail(
             println!("{}", "═".repeat(60));
 
             // 基本信息
-            println!("\n{}", highlight("基本信息 / Basic Info"));
+            println!("\n{}", highlight(texts::basic_info_section_header()));
             println!("  ID:       {}", current_id);
-            println!("  名称:     {}", provider.name);
-            println!("  应用:     {}", app_type.as_str());
+            println!("  {}:     {}", texts::name_label_with_colon(), provider.name);
+            println!("  {}:     {}", texts::app_label_with_colon(), app_type.as_str());
 
             // 仅 Claude 应用显示详细配置
             if matches!(app_type, AppType::Claude) {
                 let config = extract_claude_config(&provider.settings_config);
 
                 // API 配置
-                println!("\n{}", highlight("API 配置 / API Configuration"));
+                println!("\n{}", highlight(texts::api_config_section_header()));
                 println!(
                     "  Base URL: {}",
                     config.base_url.unwrap_or_else(|| "N/A".to_string())
@@ -110,9 +113,10 @@ fn view_provider_detail(
                 );
 
                 // 模型配置
-                println!("\n{}", highlight("模型配置 / Model Configuration"));
+                println!("\n{}", highlight(texts::model_config_section_header()));
                 println!(
-                    "  主模型:   {}",
+                    "  {}:   {}",
+                    texts::main_model_label_with_colon(),
                     config.model.unwrap_or_else(|| "default".to_string())
                 );
                 println!(
@@ -129,7 +133,7 @@ fn view_provider_detail(
                 );
             } else {
                 // Codex/Gemini 应用只显示 API URL
-                println!("\n{}", highlight("API 配置 / API Configuration"));
+                println!("\n{}", highlight(texts::api_config_section_header()));
                 let api_url = extract_api_url(&provider.settings_config, app_type)
                     .unwrap_or_else(|| "N/A".to_string());
                 println!("  API URL:  {}", api_url);
@@ -342,33 +346,62 @@ fn delete_provider_interactive(
     Ok(())
 }
 
-fn add_provider_interactive(_app_type: &AppType) -> Result<(), AppError> {
-    println!(
-        "\n{}",
-        highlight(texts::add_provider().trim_start_matches("➕ "))
-    );
-    println!("{}", "─".repeat(60));
-
-    let _name = Text::new("Provider name:")
-        .prompt()
-        .map_err(|e| AppError::Message(format!("Prompt failed: {}", e)))?;
-
-    println!(
-        "\n{}",
-        info("Note: Provider configuration is complex and varies by app type.")
-    );
-    println!(
-        "{}",
-        info("For now, please use the config file directly to add detailed settings.")
-    );
-    println!(
-        "\n{}",
-        error("Interactive provider creation is not yet fully implemented.")
-    );
-    println!("{}", info("Coming soon in the next update!"));
+fn add_provider_interactive(app_type: &AppType) -> Result<(), AppError> {
+    // 调用命令层的实现
+    crate::cli::commands::provider::execute(
+        crate::cli::commands::provider::ProviderCommand::Add,
+        Some(app_type.clone()),
+    )?;
 
     pause();
+    Ok(())
+}
 
+fn edit_provider_interactive(
+    app_type: &AppType,
+    providers: &std::collections::HashMap<String, crate::provider::Provider>,
+) -> Result<(), AppError> {
+    if providers.is_empty() {
+        println!("{}", error(texts::no_editable_providers()));
+        pause();
+        return Ok(());
+    }
+
+    // 1. 显示供应商列表让用户选择
+    let mut provider_list: Vec<_> = providers.iter().collect();
+    provider_list.sort_by(|(_, a), (_, b)| match (a.sort_index, b.sort_index) {
+        (Some(idx_a), Some(idx_b)) => idx_a.cmp(&idx_b),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => a.created_at.cmp(&b.created_at),
+    });
+
+    // 2. 使用 ID 列表配对，避免字符串匹配的潜在 bug
+    let choices: Vec<String> = provider_list
+        .iter()
+        .map(|(id, provider)| format!("{} ({})", provider.name, id))
+        .collect();
+
+    let selection = Select::new(texts::select_provider_to_edit(), choices)
+        .prompt()
+        .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+
+    // 从 "Name (id)" 格式中提取 ID
+    let selected_id = selection
+        .rsplit_once('(')  // 从右边分割，找到最后一个 '('
+        .and_then(|(_, id_part)| id_part.strip_suffix(')'))  // 移除末尾的 ')'
+        .ok_or_else(|| AppError::Message(texts::invalid_selection_format().to_string()))?
+        .to_string();
+
+    // 3. 调用命令层的实现
+    crate::cli::commands::provider::execute(
+        crate::cli::commands::provider::ProviderCommand::Edit {
+            id: selected_id,
+        },
+        Some(app_type.clone()),
+    )?;
+
+    pause();
     Ok(())
 }
 

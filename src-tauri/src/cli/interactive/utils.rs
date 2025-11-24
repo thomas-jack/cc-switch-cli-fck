@@ -1,6 +1,5 @@
 use std::sync::RwLock;
-
-use inquire::Confirm;
+use std::io::{self, Write};
 
 use crate::app_config::MultiAppConfig;
 use crate::cli::i18n::texts;
@@ -15,8 +14,8 @@ pub fn get_state() -> Result<AppState, AppError> {
 }
 
 pub fn pause() {
-    let _ = Confirm::new(texts::press_enter())
-        .with_default(true)
-        .with_help_message("")
-        .prompt();
+    print!("{} ", texts::press_enter());
+    let _ = io::stdout().flush();
+    let mut input = String::new();
+    let _ = io::stdin().read_line(&mut input);
 }
