@@ -150,40 +150,33 @@ mod tests {
 
 /// Gemini 认证类型枚举
 ///
-/// 用于优化性能，避免重复检测供应商类型
+/// 区分 OAuth 和 API Key 两种认证方式
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum GeminiAuthType {
-    /// PackyCode 供应商（使用 API Key）
-    Packycode,
-    /// Google 官方（使用 OAuth）
+    /// Google 官方（使用 OAuth 认证）
     GoogleOfficial,
-    /// 通用 Gemini 供应商（使用 API Key）
-    Generic,
+    /// API Key 认证（包括所有第三方供应商：PackyCode、Generic 等）
+    ApiKey,
 }
 
 impl ProviderService {
     // 认证类型常量
-    const PACKYCODE_SECURITY_SELECTED_TYPE: &'static str = "gemini-api-key";
+    const API_KEY_SECURITY_SELECTED_TYPE: &'static str = "gemini-api-key";
     const GOOGLE_OAUTH_SECURITY_SELECTED_TYPE: &'static str = "oauth-personal";
 
     // Partner Promotion Key 常量
-    const PACKYCODE_PARTNER_KEY: &'static str = "packycode";
     const GOOGLE_OFFICIAL_PARTNER_KEY: &'static str = "google-official";
-
-    // PackyCode 关键词常量
-    const PACKYCODE_KEYWORDS: [&'static str; 3] = ["packycode", "packyapi", "packy"];
 
     /// 检测 Gemini 供应商的认证类型
     ///
-    /// 一次性检测，避免在多个地方重复调用 `is_packycode_gemini` 和 `is_google_official_gemini`
+    /// 只区分两种认证方式：OAuth (Google 官方) 和 API Key (所有其他供应商)
     ///
     /// # 返回值
     ///
     /// - `GeminiAuthType::GoogleOfficial`: Google 官方，使用 OAuth
-    /// - `GeminiAuthType::Packycode`: PackyCode 供应商，使用 API Key
-    /// - `GeminiAuthType::Generic`: 其他通用供应商，使用 API Key
+    /// - `GeminiAuthType::ApiKey`: 其他所有供应商，使用 API Key
     fn detect_gemini_auth_type(provider: &Provider) -> GeminiAuthType {
-        // 优先检查 partner_promotion_key（最可靠）
+        // 检查 partner_promotion_key 是否为 google-official
         if let Some(key) = provider
             .meta
             .as_ref()
@@ -192,152 +185,21 @@ impl ProviderService {
             if key.eq_ignore_ascii_case(Self::GOOGLE_OFFICIAL_PARTNER_KEY) {
                 return GeminiAuthType::GoogleOfficial;
             }
-            if key.eq_ignore_ascii_case(Self::PACKYCODE_PARTNER_KEY) {
-                return GeminiAuthType::Packycode;
-            }
         }
 
-        // 检查 Google 官方（名称匹配）
+        // 检查名称是否为 Google
         let name_lower = provider.name.to_ascii_lowercase();
         if name_lower == "google" || name_lower.starts_with("google ") {
             return GeminiAuthType::GoogleOfficial;
         }
 
-        // 检查 PackyCode 关键词
-        if Self::contains_packycode_keyword(&provider.name) {
-            return GeminiAuthType::Packycode;
-        }
-
-        if let Some(site) = provider.website_url.as_deref() {
-            if Self::contains_packycode_keyword(site) {
-                return GeminiAuthType::Packycode;
-            }
-        }
-
-        if let Some(base_url) = provider
-            .settings_config
-            .pointer("/env/GOOGLE_GEMINI_BASE_URL")
-            .and_then(|v| v.as_str())
-        {
-            if Self::contains_packycode_keyword(base_url) {
-                return GeminiAuthType::Packycode;
-            }
-        }
-
-        GeminiAuthType::Generic
+        // 其他所有情况：API Key 认证
+        GeminiAuthType::ApiKey
     }
 
-    /// 检查字符串是否包含 PackyCode 相关关键词（不区分大小写）
-    ///
-    /// 关键词列表：["packycode", "packyapi", "packy"]
-    fn contains_packycode_keyword(value: &str) -> bool {
-        let lower = value.to_ascii_lowercase();
-        Self::PACKYCODE_KEYWORDS
-            .iter()
-            .any(|keyword| lower.contains(keyword))
-    }
-
-    /// 检测供应商是否为 PackyCode Gemini（使用 API Key 认证）
-    ///
-    /// PackyCode 是官方合作伙伴，需要特殊的安全配置。
-    ///
-    /// # 检测规则（优先级从高到低）
-    ///
-    /// 1. **Partner Promotion Key**（最可靠）:
-    ///    - `provider.meta.partner_promotion_key == "packycode"`
-    ///
-    /// 2. **供应商名称**:
-    ///    - 名称包含 "packycode"、"packyapi" 或 "packy"（不区分大小写）
-    ///
-    /// 3. **网站 URL**:
-    ///    - `provider.website_url` 包含关键词
-    ///
-    /// 4. **Base URL**:
-    ///    - `settings_config.env.GOOGLE_GEMINI_BASE_URL` 包含关键词
-    ///
-    /// # 为什么需要多重检测
-    ///
-    /// - 用户可能手动创建供应商，没有 `partner_promotion_key`
-    /// - 从预设复制后可能修改了 meta 字段
-    /// - 确保所有 PackyCode 供应商都能正确设置安全标志
-    fn is_packycode_gemini(provider: &Provider) -> bool {
-        // 策略 1: 检查 partner_promotion_key（最可靠）
-        if provider
-            .meta
-            .as_ref()
-            .and_then(|meta| meta.partner_promotion_key.as_deref())
-            .is_some_and(|key| key.eq_ignore_ascii_case(Self::PACKYCODE_PARTNER_KEY))
-        {
-            return true;
-        }
-
-        // 策略 2: 检查供应商名称
-        if Self::contains_packycode_keyword(&provider.name) {
-            return true;
-        }
-
-        // 策略 3: 检查网站 URL
-        if let Some(site) = provider.website_url.as_deref() {
-            if Self::contains_packycode_keyword(site) {
-                return true;
-            }
-        }
-
-        // 策略 4: 检查 Base URL
-        if let Some(base_url) = provider
-            .settings_config
-            .pointer("/env/GOOGLE_GEMINI_BASE_URL")
-            .and_then(|v| v.as_str())
-        {
-            if Self::contains_packycode_keyword(base_url) {
-                return true;
-            }
-        }
-
-        false
-    }
-
-    /// 检测供应商是否为 Google 官方 Gemini（使用 OAuth 认证）
+    /// 确保 Google 官方 Gemini 供应商的安全标志正确设置（OAuth 模式）
     ///
     /// Google 官方 Gemini 使用 OAuth 个人认证，不需要 API Key。
-    ///
-    /// # 检测规则（优先级从高到低）
-    ///
-    /// 1. **Partner Promotion Key**（最可靠）:
-    ///    - `provider.meta.partner_promotion_key == "google-official"`
-    ///
-    /// 2. **供应商名称**:
-    ///    - 名称完全等于 "google"（不区分大小写）
-    ///    - 或名称以 "google " 开头（例如 "Google Official"）
-    ///
-    /// # OAuth vs API Key
-    ///
-    /// - **OAuth 模式**: `security.auth.selectedType = "oauth-personal"`
-    ///   - 用户需要通过浏览器登录 Google 账号
-    ///   - 不需要在 `.env` 文件中配置 API Key
-    ///
-    /// - **API Key 模式**: `security.auth.selectedType = "gemini-api-key"`
-    ///   - 用于第三方中转服务（如 PackyCode）
-    ///   - 需要在 `.env` 文件中配置 `GEMINI_API_KEY`
-    fn is_google_official_gemini(provider: &Provider) -> bool {
-        // 策略 1: 检查 partner_promotion_key（最可靠）
-        if provider
-            .meta
-            .as_ref()
-            .and_then(|meta| meta.partner_promotion_key.as_deref())
-            .is_some_and(|key| key.eq_ignore_ascii_case(Self::GOOGLE_OFFICIAL_PARTNER_KEY))
-        {
-            return true;
-        }
-
-        // 策略 2: 检查名称匹配（备用方案）
-        let name_lower = provider.name.to_ascii_lowercase();
-        name_lower == "google" || name_lower.starts_with("google ")
-    }
-
-    /// 确保 PackyCode Gemini 供应商的安全标志正确设置
-    ///
-    /// PackyCode 是官方合作伙伴，使用 API Key 认证模式。
     ///
     /// # 写入两处 settings.json 的原因
     ///
@@ -350,44 +212,6 @@ impl ProviderService {
     ///    - Gemini CLI 客户端读取的配置文件
     ///    - 直接影响 Gemini 客户端的认证行为
     ///    - 确保 Gemini 使用正确的认证方式连接 API
-    ///
-    /// # 设置的值
-    ///
-    /// ```json
-    /// {
-    ///   "security": {
-    ///     "auth": {
-    ///       "selectedType": "gemini-api-key"
-    ///     }
-    ///   }
-    /// }
-    /// ```
-    ///
-    /// # 错误处理
-    ///
-    /// 如果供应商不是 PackyCode，函数立即返回 `Ok(())`，不做任何操作。
-    pub(crate) fn ensure_packycode_security_flag(provider: &Provider) -> Result<(), AppError> {
-        if !Self::is_packycode_gemini(provider) {
-            return Ok(());
-        }
-
-        // 写入应用级别的 settings.json (~/.cc-switch/settings.json)
-        settings::ensure_security_auth_selected_type(Self::PACKYCODE_SECURITY_SELECTED_TYPE)?;
-
-        // 写入 Gemini 目录的 settings.json (~/.gemini/settings.json)
-        use crate::gemini_config::write_packycode_settings;
-        write_packycode_settings()?;
-
-        Ok(())
-    }
-
-    /// 确保 Google 官方 Gemini 供应商的安全标志正确设置（OAuth 模式）
-    ///
-    /// Google 官方 Gemini 使用 OAuth 个人认证，不需要 API Key。
-    ///
-    /// # 写入两处 settings.json 的原因
-    ///
-    /// 同 `ensure_packycode_security_flag`，需要同时配置应用级和客户端级设置。
     ///
     /// # 设置的值
     ///
@@ -408,12 +232,10 @@ impl ProviderService {
     /// 3. 用户首次使用 Gemini CLI 时，会自动打开浏览器进行 OAuth 登录
     /// 4. 登录成功后，凭证保存在 Gemini 的 credential store 中
     /// 5. 后续请求自动使用保存的凭证
-    ///
-    /// # 错误处理
-    ///
-    /// 如果供应商不是 Google 官方，函数立即返回 `Ok(())`，不做任何操作。
     pub(crate) fn ensure_google_oauth_security_flag(provider: &Provider) -> Result<(), AppError> {
-        if !Self::is_google_official_gemini(provider) {
+        // 检测是否为 Google 官方
+        let auth_type = Self::detect_gemini_auth_type(provider);
+        if auth_type != GeminiAuthType::GoogleOfficial {
             return Ok(());
         }
 
@@ -423,6 +245,36 @@ impl ProviderService {
         // 写入 Gemini 目录的 settings.json (~/.gemini/settings.json)
         use crate::gemini_config::write_google_oauth_settings;
         write_google_oauth_settings()?;
+
+        Ok(())
+    }
+
+    /// 确保 API Key 供应商的安全标志正确设置
+    ///
+    /// 此函数适用于所有使用 API Key 认证的 Gemini 供应商，包括：
+    /// - PackyCode（合作伙伴）
+    /// - 其他第三方 Gemini API 服务
+    ///
+    /// 所有 API Key 供应商使用相同的认证方式和配置逻辑。
+    ///
+    /// # 设置的值
+    ///
+    /// ```json
+    /// {
+    ///   "security": {
+    ///     "auth": {
+    ///       "selectedType": "gemini-api-key"
+    ///     }
+    ///   }
+    /// }
+    /// ```
+    pub(crate) fn ensure_api_key_security_flag(_provider: &Provider) -> Result<(), AppError> {
+        // 写入应用级别的 settings.json (~/.cc-switch/settings.json)
+        settings::ensure_security_auth_selected_type(Self::API_KEY_SECURITY_SELECTED_TYPE)?;
+
+        // 写入 Gemini 目录的 settings.json (~/.gemini/settings.json)
+        use crate::gemini_config::write_generic_settings;
+        write_generic_settings()?;
 
         Ok(())
     }
@@ -1681,9 +1533,14 @@ impl ProviderService {
         let mut config_to_write = if let Some(config_value) = provider.settings_config.get("config")
         {
             if config_value.is_null() {
-                Some(json!({}))
+                None  // null → 保留现有文件
             } else if config_value.is_object() {
-                Some(config_value.clone())
+                let obj = config_value.as_object().unwrap();
+                if obj.is_empty() {
+                    None  // 空对象 {} → 保留现有文件
+                } else {
+                    Some(config_value.clone())  // 有内容 → 才替换
+                }
             } else {
                 return Err(AppError::localized(
                     "gemini.validation.invalid_config",
@@ -1699,6 +1556,8 @@ impl ProviderService {
             let settings_path = get_gemini_settings_path();
             if settings_path.exists() {
                 config_to_write = Some(read_json_file(&settings_path)?);
+            } else {
+                config_to_write = Some(json!({}));  // 新建空配置
             }
         }
 
@@ -1708,13 +1567,9 @@ impl ProviderService {
                 env_map.clear();
                 write_gemini_env_atomic(&env_map)?;
             }
-            GeminiAuthType::Packycode => {
-                // PackyCode 供应商，使用 API Key（切换时严格验证）
-                validate_gemini_settings_strict(&provider.settings_config)?;
-                write_gemini_env_atomic(&env_map)?;
-            }
-            GeminiAuthType::Generic => {
-                // 通用供应商，使用 API Key（切换时严格验证）
+            GeminiAuthType::ApiKey => {
+                // API Key 供应商（所有第三方服务）
+                // 统一处理：验证配置 + 写入 .env 文件
                 validate_gemini_settings_strict(&provider.settings_config)?;
                 write_gemini_env_atomic(&env_map)?;
             }
@@ -1727,8 +1582,7 @@ impl ProviderService {
 
         match auth_type {
             GeminiAuthType::GoogleOfficial => Self::ensure_google_oauth_security_flag(provider)?,
-            GeminiAuthType::Packycode => Self::ensure_packycode_security_flag(provider)?,
-            GeminiAuthType::Generic => {}
+            GeminiAuthType::ApiKey => Self::ensure_api_key_security_flag(provider)?,
         }
 
         Ok(())

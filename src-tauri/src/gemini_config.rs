@@ -336,24 +336,6 @@ fn update_selected_type(selected_type: &str) -> Result<(), AppError> {
     Ok(())
 }
 
-/// 为 Packycode Gemini 供应商写入 settings.json
-///
-/// 设置 `~/.gemini/settings.json` 中的：
-/// ```json
-/// {
-///   "security": {
-///     "auth": {
-///       "selectedType": "gemini-api-key"
-///     }
-///   }
-/// }
-/// ```
-///
-/// 保留文件中的其他所有字段。
-pub fn write_packycode_settings() -> Result<(), AppError> {
-    update_selected_type("gemini-api-key")
-}
-
 /// 为 Google 官方 Gemini 供应商写入 settings.json（OAuth 模式）
 ///
 /// 设置 `~/.gemini/settings.json` 中的：
@@ -370,6 +352,40 @@ pub fn write_packycode_settings() -> Result<(), AppError> {
 /// 保留文件中的其他所有字段。
 pub fn write_google_oauth_settings() -> Result<(), AppError> {
     update_selected_type("oauth-personal")
+}
+
+/// 为通用 Gemini API Key 供应商写入 settings.json
+///
+/// 设置 `~/.gemini/settings.json` 中的：
+/// ```json
+/// {
+///   "security": {
+///     "auth": {
+///       "selectedType": "gemini-api-key"
+///     }
+///   }
+/// }
+/// ```
+///
+/// 保留文件中的其他所有字段。
+///
+/// 此函数适用于所有使用 API Key 认证的 Gemini 供应商，包括：
+/// - PackyCode（合作伙伴）
+/// - 其他第三方 Gemini API 服务
+pub fn write_generic_settings() -> Result<(), AppError> {
+    update_selected_type("gemini-api-key")
+}
+
+/// 为 Packycode Gemini 供应商写入 settings.json（已废弃，使用 write_generic_settings）
+///
+/// **注意**：此函数已废弃，仅为保持向后兼容性而保留。
+/// PackyCode 现在被视为普通的 API Key 供应商，请使用 `write_generic_settings()` 代替。
+#[deprecated(
+    since = "4.1.1",
+    note = "PackyCode is now treated as a generic API key provider. Use write_generic_settings() instead."
+)]
+pub fn write_packycode_settings() -> Result<(), AppError> {
+    write_generic_settings()
 }
 
 #[cfg(test)]

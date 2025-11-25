@@ -372,14 +372,11 @@ fn prompt_gemini_config(current: Option<&Value>) -> Result<Value, AppError> {
     let current_auth_type = detect_gemini_auth_type(current);
     let default_index = match current_auth_type.as_deref() {
         Some("oauth") => 0,
-        Some("packycode") => 1,
-        Some("generic") => 2,
-        _ => 1, // 默认 PackyCode
+        _ => 1, // 默认 Generic API Key（包括 packycode 和 generic）
     };
 
     let auth_options = vec![
         texts::google_oauth_official(),
-        texts::packycode_api_key(),
         texts::generic_api_key(),
     ];
 
@@ -391,7 +388,6 @@ fn prompt_gemini_config(current: Option<&Value>) -> Result<Value, AppError> {
 
     // Match using the translated strings
     let google_oauth = texts::google_oauth_official();
-    let packycode = texts::packycode_api_key();
 
     if auth_type == google_oauth {
         println!("{}", texts::use_google_oauth_warning().yellow());
@@ -399,7 +395,8 @@ fn prompt_gemini_config(current: Option<&Value>) -> Result<Value, AppError> {
             "env": {},
             "config": {}
         }))
-    } else if auth_type == packycode {
+    } else {
+        // Generic API Key (统一处理所有 API Key 供应商，包括 PackyCode)
         let api_key = if let Some(current_key) = current
             .and_then(|v| v.get("env"))
             .and_then(|e| e.get("GEMINI_API_KEY"))
@@ -408,13 +405,13 @@ fn prompt_gemini_config(current: Option<&Value>) -> Result<Value, AppError> {
         {
             Text::new(texts::gemini_api_key_label())
                 .with_initial_value(current_key)
-                .with_help_message(texts::packycode_api_key_help())
+                .with_help_message(texts::generic_api_key_help())
                 .prompt()
                 .map_err(|e| AppError::Message(texts::input_failed_error(&e.to_string())))?
         } else {
             Text::new(texts::gemini_api_key_label())
-                .with_placeholder("pk-...")
-                .with_help_message(texts::packycode_api_key_help())
+                .with_placeholder("AIza... or pk-...")
+                .with_help_message(texts::generic_api_key_help())
                 .prompt()
                 .map_err(|e| AppError::Message(texts::input_failed_error(&e.to_string())))?
         };
@@ -422,53 +419,6 @@ fn prompt_gemini_config(current: Option<&Value>) -> Result<Value, AppError> {
         let base_url = if let Some(current_url) = current
             .and_then(|v| v.get("env"))
             .and_then(|e| e.get("GOOGLE_GEMINI_BASE_URL"))
-            .and_then(|u| u.as_str())
-            .filter(|s| !s.is_empty())
-        {
-            Text::new(texts::gemini_base_url_label())
-                .with_initial_value(current_url)
-                .with_help_message(texts::packycode_endpoint_help())
-                .prompt()
-                .map_err(|e| AppError::Message(texts::input_failed_error(&e.to_string())))?
-        } else {
-            Text::new(texts::gemini_base_url_label())
-                .with_placeholder("https://packycode.com/api")
-                .with_help_message(texts::packycode_endpoint_help())
-                .prompt()
-                .map_err(|e| AppError::Message(texts::input_failed_error(&e.to_string())))?
-        };
-
-        Ok(json!({
-            "env": {
-                "GEMINI_API_KEY": api_key.trim(),
-                "GOOGLE_GEMINI_BASE_URL": base_url.trim()
-            },
-            "config": {}
-        }))
-    } else {
-        // Generic API Key
-        let api_key = if let Some(current_key) = current
-            .and_then(|v| v.get("env"))
-            .and_then(|e| e.get("GEMINI_API_KEY"))
-            .and_then(|k| k.as_str())
-            .filter(|s| !s.is_empty())
-        {
-            Text::new(texts::gemini_api_key_label())
-                .with_initial_value(current_key)
-                .with_help_message(texts::generic_api_key_help())
-                .prompt()
-                .map_err(|e| AppError::Message(texts::input_failed_error(&e.to_string())))?
-        } else {
-            Text::new(texts::gemini_api_key_label())
-                .with_placeholder("AIza...")
-                .with_help_message(texts::generic_api_key_help())
-                .prompt()
-                .map_err(|e| AppError::Message(texts::input_failed_error(&e.to_string())))?
-        };
-
-        let base_url = if let Some(current_url) = current
-            .and_then(|v| v.get("env"))
-            .and_then(|e| e.get("BASE_URL"))
             .and_then(|u| u.as_str())
             .filter(|s| !s.is_empty())
         {
@@ -488,7 +438,7 @@ fn prompt_gemini_config(current: Option<&Value>) -> Result<Value, AppError> {
         Ok(json!({
             "env": {
                 "GEMINI_API_KEY": api_key.trim(),
-                "BASE_URL": base_url.trim()
+                "GOOGLE_GEMINI_BASE_URL": base_url.trim()
             },
             "config": {}
         }))
