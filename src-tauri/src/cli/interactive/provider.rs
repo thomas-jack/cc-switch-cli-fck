@@ -375,6 +375,22 @@ impl std::fmt::Display for EditMode {
     }
 }
 
+/// Codex config file choices for JSON editing
+#[derive(Debug, Clone)]
+enum CodexConfigFile {
+    Auth,   // auth.json
+    Config, // config.toml
+}
+
+impl std::fmt::Display for CodexConfigFile {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Auth => write!(f, "auth.json"),
+            Self::Config => write!(f, "config.toml"),
+        }
+    }
+}
+
 fn edit_provider_interactive(
     app_type: &AppType,
     providers: &std::collections::HashMap<String, crate::provider::Provider>,
@@ -450,20 +466,67 @@ fn edit_provider_interactive(
     Ok(())
 }
 
-/// Edit provider using external JSON editor
+/// Edit provider using external JSON editor (per-file editing)
 fn edit_provider_with_json_editor(
     app_type: &AppType,
     id: &str,
     original: &crate::provider::Provider,
 ) -> Result<(), AppError> {
-    loop {
-        // 1. Serialize to pretty JSON
-        let json_content = serde_json::to_string_pretty(original)
-            .map_err(|e| AppError::JsonSerialize { source: e })?;
+    // 1. Determine which field to edit based on app type
+    let (field_name, content_to_edit, is_toml) = match app_type {
+        AppType::Claude => {
+            // Claude: edit entire settings_config (JSON, including env and permissions)
+            let json_str = serde_json::to_string_pretty(&original.settings_config)
+                .map_err(|e| AppError::JsonSerialize { source: e })?;
 
-        // 2. Open in external editor
-        println!("\n{}", info(texts::opening_external_editor()));
-        let edited_content = match open_external_editor(&json_content) {
+            ("settings_config", json_str, false)
+        }
+        AppType::Codex => {
+            // Codex: ask user which file to edit
+            let file_choice = Select::new(
+                "Select config file to edit:",
+                vec![CodexConfigFile::Auth, CodexConfigFile::Config],
+            )
+            .prompt()
+            .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+
+            match file_choice {
+                CodexConfigFile::Auth => {
+                    // Edit auth.json (JSON format)
+                    let auth_value = original.settings_config
+                        .get("auth")
+                        .ok_or_else(|| AppError::Message("Missing 'auth' field in settings_config".to_string()))?;
+
+                    let json_str = serde_json::to_string_pretty(auth_value)
+                        .map_err(|e| AppError::JsonSerialize { source: e })?;
+
+                    ("settings_config.auth", json_str, false)
+                }
+                CodexConfigFile::Config => {
+                    // Edit config.toml (TOML format)
+                    let config_str = original.settings_config
+                        .get("config")
+                        .and_then(|v| v.as_str())
+                        .ok_or_else(|| AppError::Message("Missing or invalid 'config' field in settings_config".to_string()))?;
+
+                    ("settings_config.config", config_str.to_string(), true)
+                }
+            }
+        }
+        AppType::Gemini => {
+            // Gemini: edit entire settings_config (JSON)
+            let json_str = serde_json::to_string_pretty(&original.settings_config)
+                .map_err(|e| AppError::JsonSerialize { source: e })?;
+
+            ("settings_config", json_str, false)
+        }
+    };
+
+    // 2. Edit loop with validation
+    loop {
+        // Open external editor
+        println!("\n{}", info(&format!("{} ({})", texts::opening_external_editor(), field_name)));
+        let edited_content = match open_external_editor(&content_to_edit) {
             Ok(content) => content,
             Err(e) => {
                 println!("\n{}", error(&format!("{}", e)));
@@ -472,85 +535,73 @@ fn edit_provider_with_json_editor(
         };
 
         // Check if content was changed
-        if edited_content.trim() == json_content.trim() {
+        if edited_content.trim() == content_to_edit.trim() {
             println!("\n{}", info(texts::no_changes_detected()));
             return Ok(());
         }
 
-        // 3. Validate JSON syntax
-        let parsed_value: serde_json::Value = match serde_json::from_str(&edited_content) {
-            Ok(v) => v,
-            Err(e) => {
-                println!("\n{}", error(&format!("{}: {}", texts::invalid_json_syntax(), e)));
+        // 3. Validate syntax based on format
+        let validated_value = if is_toml {
+            // TOML validation for Codex config
+            match toml::from_str::<toml::Value>(&edited_content) {
+                Ok(_) => {
+                    // Store as string in JSON Value
+                    serde_json::Value::String(edited_content.clone())
+                }
+                Err(e) => {
+                    println!("\n{}", error(&format!("Invalid TOML syntax: {}", e)));
 
-                // Ask if user wants to retry
-                let retry = Confirm::new(texts::retry_editing())
-                    .with_default(true)
-                    .prompt()
-                    .map_err(|e| AppError::Message(format!("Confirmation failed: {}", e)))?;
-
-                if retry {
-                    // Update original with the edited (but invalid) content for retry
-                    // This way user doesn't lose their work
+                    if !retry_prompt()? {
+                        return Ok(());
+                    }
                     continue;
-                } else {
-                    println!("\n{}", info(texts::cancelled()));
-                    return Ok(());
+                }
+            }
+        } else {
+            // JSON validation
+            match serde_json::from_str::<serde_json::Value>(&edited_content) {
+                Ok(v) => v,
+                Err(e) => {
+                    println!("\n{}", error(&format!("{}: {}", texts::invalid_json_syntax(), e)));
+
+                    if !retry_prompt()? {
+                        return Ok(());
+                    }
+                    continue;
                 }
             }
         };
 
-        // 4. Parse as Provider struct
-        let updated: crate::provider::Provider = match serde_json::from_value(parsed_value) {
-            Ok(p) => p,
-            Err(e) => {
-                println!(
-                    "\n{}",
-                    error(&format!("{}: {}", texts::invalid_provider_structure(), e))
-                );
+        // 4. Merge edited field back into Provider
+        let mut updated_provider = original.clone();
 
-                // Ask if user wants to retry
-                let retry = Confirm::new(texts::retry_editing())
-                    .with_default(true)
-                    .prompt()
-                    .map_err(|e| AppError::Message(format!("Confirmation failed: {}", e)))?;
-
-                if retry {
-                    continue;
-                } else {
-                    println!("\n{}", info(texts::cancelled()));
-                    return Ok(());
+        match app_type {
+            AppType::Claude => {
+                // Replace entire settings_config
+                updated_provider.settings_config = validated_value;
+            }
+            AppType::Codex => {
+                // Update auth or config field based on what was edited
+                if let Some(settings_obj) = updated_provider.settings_config.as_object_mut() {
+                    if field_name == "settings_config.auth" {
+                        settings_obj.insert("auth".to_string(), validated_value);
+                    } else {
+                        settings_obj.insert("config".to_string(), validated_value);
+                    }
                 }
             }
-        };
-
-        // 5. Verify ID hasn't changed
-        if updated.id != id {
-            println!(
-                "\n{}",
-                error(texts::provider_id_cannot_be_changed())
-            );
-
-            // Ask if user wants to retry
-            let retry = Confirm::new(texts::retry_editing())
-                .with_default(true)
-                .prompt()
-                .map_err(|e| AppError::Message(format!("Confirmation failed: {}", e)))?;
-
-            if retry {
-                continue;
-            } else {
-                println!("\n{}", info(texts::cancelled()));
-                return Ok(());
+            AppType::Gemini => {
+                // Replace entire settings_config
+                updated_provider.settings_config = validated_value;
             }
         }
 
-        // 6. Display summary
+        // 5. Display summary
         println!("\n{}", highlight(texts::provider_summary()));
         println!("{}", "─".repeat(60));
-        display_provider_summary(&updated, app_type);
+        display_provider_summary(&updated_provider, app_type);
 
-        // 7. Confirm save
+        // 6. Confirm save
         let confirm = Confirm::new(texts::confirm_save_changes())
             .with_default(false)
             .prompt()
@@ -561,18 +612,34 @@ fn edit_provider_with_json_editor(
             return Ok(());
         }
 
-        // 8. Save using ProviderService
+        // 7. Save to config.json
         let state = get_state()?;
-        ProviderService::update(&state, app_type.clone(), updated)?;
+        ProviderService::update(&state, app_type.clone(), updated_provider)?;
 
         println!(
             "\n{}",
             success(&texts::entity_updated_success(texts::entity_provider(), id))
         );
+
+        // 8. Immediately sync to live config files
+        println!("\n{}", info("Syncing to live config files..."));
+        ProviderService::switch(&state, app_type.clone(), id)?;
+
+        println!("{}", success("✓ Changes synced to live config files"));
+        println!("{}", info(texts::restart_note()));
+
         break;
     }
 
     Ok(())
+}
+
+/// Helper function to prompt for retry
+fn retry_prompt() -> Result<bool, AppError> {
+    Confirm::new(texts::retry_editing())
+        .with_default(true)
+        .prompt()
+        .map_err(|e| AppError::Message(format!("Confirmation failed: {}", e)))
 }
 
 /// Open external editor for content editing
