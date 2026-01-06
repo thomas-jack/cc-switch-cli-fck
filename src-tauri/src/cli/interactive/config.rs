@@ -1,9 +1,9 @@
-use inquire::{Confirm, Editor, Select, Text};
+use inquire::{Confirm, Select, Text};
 use std::path::Path;
 
 use crate::app_config::{AppType, MultiAppConfig};
 use crate::cli::i18n::texts;
-use crate::cli::ui::{highlight, info, success};
+use crate::cli::ui::{error, highlight, info, success};
 use crate::config::get_app_config_path;
 use crate::error::AppError;
 use crate::services::ProviderService;
@@ -90,36 +90,84 @@ fn edit_common_config_snippet_interactive(app_type: &AppType) -> Result<(), AppE
         current
     };
 
-    let prompt = texts::common_config_snippet_editor_prompt(app_type.as_str());
-    let edited = Editor::new(&prompt)
-        .with_predefined_text(&initial)
-        .prompt()
-        .map_err(|e| AppError::Message(format!("Editor failed: {}", e)))?;
+    let field_name = format!("common_config_snippet.{}", app_type.as_str());
 
-    let edited = edited.trim().to_string();
-    let (next_snippet, action_label) = if edited.is_empty() {
-        (None, texts::common_config_snippet_cleared())
-    } else {
-        let value: serde_json::Value = serde_json::from_str(&edited).map_err(|e| {
-            AppError::Message(texts::common_config_snippet_invalid_json(&e.to_string()))
-        })?;
-        if !value.is_object() {
-            return Err(AppError::Message(
-                texts::common_config_snippet_not_object().to_string(),
-            ));
+    loop {
+        println!(
+            "\n{}",
+            info(&format!("{} ({})", texts::opening_external_editor(), field_name))
+        );
+
+        let edited = match open_external_editor(&initial) {
+            Ok(content) => content,
+            Err(e) => {
+                println!("\n{}", error(&format!("{}", e)));
+                return Ok(());
+            }
+        };
+
+        // Check if content was changed
+        if edited.trim() == initial.trim() {
+            println!("\n{}", info(texts::no_changes_detected()));
+            return Ok(());
         }
-        let pretty = serde_json::to_string_pretty(&value)
-            .map_err(|e| AppError::Message(format!("Failed to serialize JSON: {}", e)))?;
-        (Some(pretty), texts::common_config_snippet_saved())
-    };
 
-    {
-        let mut cfg = state.config.write()?;
-        cfg.common_config_snippets.set(app_type, next_snippet);
+        let edited = edited.trim().to_string();
+        let (next_snippet, action_label) = if edited.is_empty() {
+            (None, texts::common_config_snippet_cleared())
+        } else {
+            let value: serde_json::Value = match serde_json::from_str(&edited) {
+                Ok(v) => v,
+                Err(e) => {
+                    println!("\n{}", error(&format!("{}: {}", texts::invalid_json_syntax(), e)));
+                    if !retry_prompt()? {
+                        return Ok(());
+                    }
+                    continue;
+                }
+            };
+
+            if !value.is_object() {
+                println!(
+                    "\n{}",
+                    error(&texts::common_config_snippet_not_object().to_string())
+                );
+                if !retry_prompt()? {
+                    return Ok(());
+                }
+                continue;
+            }
+
+            let pretty = serde_json::to_string_pretty(&value)
+                .map_err(|e| AppError::Message(format!("Failed to serialize JSON: {}", e)))?;
+
+            println!("\n{}", highlight(texts::config_common_snippet()));
+            println!("{}", "─".repeat(60));
+            println!("{}", pretty);
+
+            let confirm = Confirm::new(texts::confirm_save_changes())
+                .with_default(false)
+                .prompt()
+                .map_err(|e| AppError::Message(format!("Confirmation failed: {}", e)))?;
+
+            if !confirm {
+                println!("\n{}", info(texts::cancelled()));
+                return Ok(());
+            }
+
+            (Some(pretty), texts::common_config_snippet_saved())
+        };
+
+        {
+            let mut cfg = state.config.write()?;
+            cfg.common_config_snippets.set(app_type, next_snippet);
+        }
+        state.save()?;
+
+        println!("\n{}", success(action_label));
+
+        break;
     }
-    state.save()?;
-
-    println!("\n{}", success(action_label));
 
     let apply = Confirm::new(texts::common_config_snippet_apply_now())
         .with_default(true)
@@ -140,6 +188,18 @@ fn edit_common_config_snippet_interactive(app_type: &AppType) -> Result<(), AppE
 
     pause();
     Ok(())
+}
+
+fn retry_prompt() -> Result<bool, AppError> {
+    Confirm::new(texts::retry_editing())
+        .with_default(true)
+        .prompt()
+        .map_err(|e| AppError::Message(format!("Confirmation failed: {}", e)))
+}
+
+fn open_external_editor(initial_content: &str) -> Result<String, AppError> {
+    edit::edit(initial_content)
+        .map_err(|e| AppError::Message(format!("{}: {}", texts::editor_failed(), e)))
 }
 
 fn show_config_path_interactive() -> Result<(), AppError> {
