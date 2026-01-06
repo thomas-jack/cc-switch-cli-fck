@@ -1,10 +1,8 @@
-use inquire::Select;
-
 use crate::cli::i18n::{current_language, set_language, texts, Language};
 use crate::cli::ui::{highlight, success};
 use crate::error::AppError;
 
-use super::utils::{clear_screen, pause};
+use super::utils::{clear_screen, pause, prompt_select};
 
 pub fn settings_menu() -> Result<(), AppError> {
     loop {
@@ -22,9 +20,9 @@ pub fn settings_menu() -> Result<(), AppError> {
 
         let choices = vec![texts::change_language(), texts::back_to_main()];
 
-        let choice = Select::new(texts::choose_action(), choices)
-            .prompt()
-            .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+        let Some(choice) = prompt_select(texts::choose_action(), choices)? else {
+            break;
+        };
 
         if choice == texts::change_language() {
             change_language_interactive()?;
@@ -40,9 +38,9 @@ fn change_language_interactive() -> Result<(), AppError> {
     clear_screen();
     let languages = vec![Language::English, Language::Chinese];
 
-    let selected = Select::new(texts::select_language(), languages)
-        .prompt()
-        .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+    let Some(selected) = prompt_select(texts::select_language(), languages)? else {
+        return Ok(());
+    };
 
     set_language(selected)?;
 

@@ -5,15 +5,13 @@ mod provider;
 mod settings;
 mod utils;
 
-use inquire::Select;
-
 use crate::app_config::AppType;
 use crate::cli::i18n::texts;
 use crate::cli::ui::{error, highlight, info, success};
 use crate::error::AppError;
 use crate::services::{McpService, PromptService, ProviderService};
 
-use utils::{clear_screen, pause};
+use utils::{clear_screen, pause, prompt_select};
 
 pub fn run(app: Option<AppType>) -> Result<(), AppError> {
     let mut app_type = app.unwrap_or(AppType::Claude);
@@ -128,19 +126,18 @@ fn show_main_menu(app_type: &AppType) -> Result<MainMenuChoice, AppError> {
         MainMenuChoice::Exit,
     ];
 
-    let choice = Select::new(&texts::main_menu_prompt(app_type.as_str()), choices)
-        .prompt()
-        .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
-
-    Ok(choice)
+    Ok(
+        prompt_select(&texts::main_menu_prompt(app_type.as_str()), choices)?
+            .unwrap_or(MainMenuChoice::Exit),
+    )
 }
 
 fn select_app() -> Result<AppType, AppError> {
     let apps = vec![AppType::Claude, AppType::Codex, AppType::Gemini];
 
-    let app = Select::new(texts::select_application(), apps)
-        .prompt()
-        .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+    let Some(app) = prompt_select(texts::select_application(), apps)? else {
+        return Err(AppError::Message("Selection cancelled".to_string()));
+    };
 
     println!("\n{}", success(&texts::switched_to_app(app.as_str())));
     pause();

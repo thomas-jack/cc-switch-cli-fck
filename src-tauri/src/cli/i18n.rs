@@ -107,15 +107,27 @@ pub mod texts {
     // ============================================
 
     pub fn entity_provider() -> &'static str {
-        if is_chinese() { "供应商" } else { "provider" }
+        if is_chinese() {
+            "供应商"
+        } else {
+            "provider"
+        }
     }
 
     pub fn entity_server() -> &'static str {
-        if is_chinese() { "服务器" } else { "server" }
+        if is_chinese() {
+            "服务器"
+        } else {
+            "server"
+        }
     }
 
     pub fn entity_prompt() -> &'static str {
-        if is_chinese() { "提示词" } else { "prompt" }
+        if is_chinese() {
+            "提示词"
+        } else {
+            "prompt"
+        }
     }
 
     // ============================================
@@ -361,6 +373,14 @@ pub mod texts {
             "选择操作："
         } else {
             "Choose an action:"
+        }
+    }
+
+    pub fn esc_to_go_back_help() -> &'static str {
+        if is_chinese() {
+            "Esc 返回上一步"
+        } else {
+            "Esc to go back"
         }
     }
 
@@ -2061,11 +2081,19 @@ pub mod texts {
     }
 
     pub fn common_config_snippet_saved() -> &'static str {
-        if is_chinese() { "✓ 已保存通用配置片段" } else { "✓ Common config snippet saved" }
+        if is_chinese() {
+            "✓ 已保存通用配置片段"
+        } else {
+            "✓ Common config snippet saved"
+        }
     }
 
     pub fn common_config_snippet_cleared() -> &'static str {
-        if is_chinese() { "✓ 已清除通用配置片段" } else { "✓ Common config snippet cleared" }
+        if is_chinese() {
+            "✓ 已清除通用配置片段"
+        } else {
+            "✓ Common config snippet cleared"
+        }
     }
 
     pub fn common_config_snippet_apply_now() -> &'static str {

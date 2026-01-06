@@ -1,4 +1,3 @@
-use inquire::{Confirm, MultiSelect, Select, Text};
 use std::process::Command;
 
 use crate::app_config::AppType;
@@ -8,7 +7,9 @@ use crate::error::AppError;
 use crate::services::McpService;
 use crate::store::AppState;
 
-use super::utils::{clear_screen, get_state, pause};
+use super::utils::{
+    clear_screen, get_state, pause, prompt_confirm, prompt_multiselect, prompt_select, prompt_text,
+};
 
 pub fn manage_mcp_menu(_app_type: &AppType) -> Result<(), AppError> {
     loop {
@@ -51,9 +52,9 @@ pub fn manage_mcp_menu(_app_type: &AppType) -> Result<(), AppError> {
             texts::back_to_main(),
         ];
 
-        let choice = Select::new(texts::choose_action(), choices)
-            .prompt()
-            .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+        let Some(choice) = prompt_select(texts::choose_action(), choices)? else {
+            break;
+        };
 
         if choice == texts::sync_all_servers() {
             McpService::sync_all_enabled(&state)?;
@@ -91,9 +92,9 @@ fn mcp_enable_server_interactive(state: &AppState) -> Result<(), AppError> {
         .map(|(id, s)| format!("{} ({})", s.name, id))
         .collect();
 
-    let selected = Select::new(texts::select_server_to_enable(), server_choices)
-        .prompt()
-        .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+    let Some(selected) = prompt_select(texts::select_server_to_enable(), server_choices)? else {
+        return Ok(());
+    };
 
     let server_id = selected
         .split('(')
@@ -102,9 +103,10 @@ fn mcp_enable_server_interactive(state: &AppState) -> Result<(), AppError> {
         .ok_or_else(|| AppError::Message("Invalid selection".to_string()))?;
 
     let app_choices = vec!["Claude", "Codex", "Gemini"];
-    let selected_apps = MultiSelect::new(texts::select_apps_to_enable(), app_choices)
-        .prompt()
-        .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+    let Some(selected_apps) = prompt_multiselect(texts::select_apps_to_enable(), app_choices)?
+    else {
+        return Ok(());
+    };
 
     let apps: Vec<AppType> = selected_apps
         .iter()
@@ -139,9 +141,9 @@ fn mcp_disable_server_interactive(state: &AppState) -> Result<(), AppError> {
         .map(|(id, s)| format!("{} ({})", s.name, id))
         .collect();
 
-    let selected = Select::new(texts::select_server_to_disable(), server_choices)
-        .prompt()
-        .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+    let Some(selected) = prompt_select(texts::select_server_to_disable(), server_choices)? else {
+        return Ok(());
+    };
 
     let server_id = selected
         .split('(')
@@ -150,9 +152,10 @@ fn mcp_disable_server_interactive(state: &AppState) -> Result<(), AppError> {
         .ok_or_else(|| AppError::Message("Invalid selection".to_string()))?;
 
     let app_choices = vec!["Claude", "Codex", "Gemini"];
-    let selected_apps = MultiSelect::new(texts::select_apps_to_disable(), app_choices)
-        .prompt()
-        .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+    let Some(selected_apps) = prompt_multiselect(texts::select_apps_to_disable(), app_choices)?
+    else {
+        return Ok(());
+    };
 
     let apps: Vec<AppType> = selected_apps
         .iter()
@@ -187,9 +190,9 @@ fn mcp_delete_server_interactive(state: &AppState) -> Result<(), AppError> {
         .map(|(id, s)| format!("{} ({})", s.name, id))
         .collect();
 
-    let selected = Select::new(texts::select_server_to_delete(), server_choices)
-        .prompt()
-        .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+    let Some(selected) = prompt_select(texts::select_server_to_delete(), server_choices)? else {
+        return Ok(());
+    };
 
     let server_id = selected
         .split('(')
@@ -197,10 +200,10 @@ fn mcp_delete_server_interactive(state: &AppState) -> Result<(), AppError> {
         .and_then(|s| s.strip_suffix(')'))
         .ok_or_else(|| AppError::Message("Invalid selection".to_string()))?;
 
-    let confirm = Confirm::new(&texts::confirm_delete(server_id))
-        .with_default(false)
-        .prompt()
-        .map_err(|_| AppError::Message("Confirmation failed".to_string()))?;
+    let confirm_prompt = texts::confirm_delete(server_id);
+    let Some(confirm) = prompt_confirm(&confirm_prompt, false)? else {
+        return Ok(());
+    };
 
     if !confirm {
         println!("\n{}", info(texts::cancelled()));
@@ -228,9 +231,9 @@ fn mcp_import_servers_interactive(state: &AppState) -> Result<(), AppError> {
 
 fn mcp_validate_command_interactive() -> Result<(), AppError> {
     clear_screen();
-    let command = Text::new(texts::enter_command_to_validate())
-        .prompt()
-        .map_err(|e| AppError::Message(format!("Input failed: {}", e)))?;
+    let Some(command) = prompt_text(texts::enter_command_to_validate())? else {
+        return Ok(());
+    };
 
     let is_valid = if cfg!(target_os = "windows") {
         Command::new("where")

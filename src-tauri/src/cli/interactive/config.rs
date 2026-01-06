@@ -1,4 +1,4 @@
-use inquire::{Confirm, Select, Text};
+use inquire::{Confirm, Text};
 use std::path::Path;
 
 use crate::app_config::{AppType, MultiAppConfig};
@@ -9,7 +9,10 @@ use crate::error::AppError;
 use crate::services::ConfigService;
 use crate::services::ProviderService;
 
-use super::utils::{clear_screen, get_state, pause};
+use super::utils::{
+    clear_screen, get_state, handle_inquire, pause, prompt_confirm, prompt_select, prompt_text,
+    prompt_text_with_default,
+};
 
 pub fn manage_config_menu(app_type: &AppType) -> Result<(), AppError> {
     loop {
@@ -30,24 +33,25 @@ pub fn manage_config_menu(app_type: &AppType) -> Result<(), AppError> {
             texts::back_to_main(),
         ];
 
-        let choice = Select::new(texts::choose_action(), choices)
-            .prompt()
-            .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+        let Some(choice) = prompt_select(texts::choose_action(), choices)? else {
+            break;
+        };
 
         if choice == texts::config_show_path() {
             show_config_path_interactive()?;
         } else if choice == texts::config_show_full() {
             show_full_config_interactive()?;
         } else if choice == texts::config_export() {
-            let path = Text::new(texts::enter_export_path())
-                .with_default("./config-export.json")
-                .prompt()
-                .map_err(|e| AppError::Message(format!("Input failed: {}", e)))?;
+            let Some(path) =
+                prompt_text_with_default(texts::enter_export_path(), "./config-export.json")?
+            else {
+                continue;
+            };
             export_config_interactive(&path)?;
         } else if choice == texts::config_import() {
-            let path = Text::new(texts::enter_import_path())
-                .prompt()
-                .map_err(|e| AppError::Message(format!("Input failed: {}", e)))?;
+            let Some(path) = prompt_text(texts::enter_import_path())? else {
+                continue;
+            };
             import_config_interactive(&path)?;
         } else if choice == texts::config_backup() {
             backup_config_interactive()?;
@@ -154,10 +158,9 @@ fn edit_common_config_snippet_interactive(app_type: &AppType) -> Result<(), AppE
             println!("{}", "─".repeat(60));
             println!("{}", pretty);
 
-            let confirm = Confirm::new(texts::confirm_save_changes())
-                .with_default(false)
-                .prompt()
-                .map_err(|e| AppError::Message(format!("Confirmation failed: {}", e)))?;
+            let Some(confirm) = prompt_confirm(texts::confirm_save_changes(), false)? else {
+                return Ok(());
+            };
 
             if !confirm {
                 println!("\n{}", info(texts::cancelled()));
@@ -178,10 +181,9 @@ fn edit_common_config_snippet_interactive(app_type: &AppType) -> Result<(), AppE
         break;
     }
 
-    let apply = Confirm::new(texts::common_config_snippet_apply_now())
-        .with_default(true)
-        .prompt()
-        .map_err(|_| AppError::Message("Confirmation failed".to_string()))?;
+    let Some(apply) = prompt_confirm(texts::common_config_snippet_apply_now(), true)? else {
+        return Ok(());
+    };
 
     if apply {
         let current_id = ProviderService::current(&state, app_type.clone())?;
@@ -203,10 +205,7 @@ fn edit_common_config_snippet_interactive(app_type: &AppType) -> Result<(), AppE
 }
 
 fn retry_prompt() -> Result<bool, AppError> {
-    Confirm::new(texts::retry_editing())
-        .with_default(true)
-        .prompt()
-        .map_err(|e| AppError::Message(format!("Confirmation failed: {}", e)))
+    Ok(prompt_confirm(texts::retry_editing(), true)?.unwrap_or(false))
 }
 
 fn open_external_editor(initial_content: &str) -> Result<String, AppError> {
@@ -269,10 +268,10 @@ fn export_config_interactive(path: &str) -> Result<(), AppError> {
     let target_path = Path::new(path);
 
     if target_path.exists() {
-        let confirm = Confirm::new(&texts::file_overwrite_confirm(path))
-            .with_default(false)
-            .prompt()
-            .map_err(|_| AppError::Message("Confirmation failed".to_string()))?;
+        let overwrite_prompt = texts::file_overwrite_confirm(path);
+        let Some(confirm) = prompt_confirm(&overwrite_prompt, false)? else {
+            return Ok(());
+        };
 
         if !confirm {
             println!("\n{}", info(texts::cancelled()));
@@ -296,10 +295,9 @@ fn import_config_interactive(path: &str) -> Result<(), AppError> {
         return Err(AppError::Message(format!("File not found: {}", path)));
     }
 
-    let confirm = Confirm::new(texts::confirm_import())
-        .with_default(false)
-        .prompt()
-        .map_err(|_| AppError::Message("Confirmation failed".to_string()))?;
+    let Some(confirm) = prompt_confirm(texts::confirm_import(), false)? else {
+        return Ok(());
+    };
 
     if !confirm {
         println!("\n{}", info(texts::cancelled()));
@@ -325,21 +323,32 @@ fn backup_config_interactive() -> Result<(), AppError> {
     println!("{}", "─".repeat(60));
 
     // 询问是否使用自定义名称
-    let use_custom_name = Confirm::new("是否使用自定义备份名称？")
-        .with_default(false)
-        .with_help_message("自定义名称可以帮助您识别备份用途，如 'before-update'")
-        .prompt()
-        .map_err(|_| AppError::Message("Confirmation failed".to_string()))?;
+    let Some(use_custom_name) = handle_inquire(
+        Confirm::new("是否使用自定义备份名称？")
+            .with_default(false)
+            .with_help_message("自定义名称可以帮助您识别备份用途，如 'before-update'")
+            .prompt(),
+    )?
+    else {
+        return Ok(());
+    };
 
     let custom_name = if use_custom_name {
-        Some(
+        let Some(input) = handle_inquire(
             Text::new("请输入备份名称：")
                 .with_help_message("仅支持字母、数字、短横线和下划线")
-                .prompt()
-                .map_err(|e| AppError::Message(format!("Input failed: {}", e)))?
-                .trim()
-                .to_string(),
-        )
+                .prompt(),
+        )?
+        else {
+            return Ok(());
+        };
+
+        let trimmed = input.trim().to_string();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
     } else {
         None
     };
@@ -386,9 +395,9 @@ fn restore_config_interactive() -> Result<(), AppError> {
         .map(|b| format!("{} - {}", b.display_name, b.id))
         .collect();
 
-    let selection = Select::new("选择要恢复的备份：", choices)
-        .prompt()
-        .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+    let Some(selection) = prompt_select("选择要恢复的备份：", choices)? else {
+        return Ok(());
+    };
 
     // 从选择中提取备份 ID
     let selected_backup = backups
@@ -402,10 +411,9 @@ fn restore_config_interactive() -> Result<(), AppError> {
     println!("当前配置会先自动备份");
     println!();
 
-    let confirm = Confirm::new("确认恢复？")
-        .with_default(false)
-        .prompt()
-        .map_err(|_| AppError::Message("Confirmation failed".to_string()))?;
+    let Some(confirm) = prompt_confirm("确认恢复？", false)? else {
+        return Ok(());
+    };
 
     if !confirm {
         println!("\n{}", info(texts::cancelled()));
@@ -486,10 +494,9 @@ fn validate_config_interactive() -> Result<(), AppError> {
 
 fn reset_config_interactive() -> Result<(), AppError> {
     clear_screen();
-    let confirm = Confirm::new(texts::confirm_reset())
-        .with_default(false)
-        .prompt()
-        .map_err(|_| AppError::Message("Confirmation failed".to_string()))?;
+    let Some(confirm) = prompt_confirm(texts::confirm_reset(), false)? else {
+        return Ok(());
+    };
 
     if !confirm {
         println!("\n{}", info(texts::cancelled()));

@@ -1,5 +1,3 @@
-use inquire::{Confirm, Select};
-
 use crate::app_config::AppType;
 use crate::cli::i18n::texts;
 use crate::cli::ui::{create_table, error, highlight, info, success};
@@ -7,7 +5,7 @@ use crate::error::AppError;
 use crate::services::{ProviderService, SpeedtestService};
 use crate::store::AppState;
 
-use super::utils::{clear_screen, get_state, pause};
+use super::utils::{clear_screen, get_state, pause, prompt_confirm, prompt_select};
 
 pub fn manage_providers_menu(app_type: &AppType) -> Result<(), AppError> {
     loop {
@@ -59,9 +57,9 @@ pub fn manage_providers_menu(app_type: &AppType) -> Result<(), AppError> {
             texts::back_to_main(),
         ];
 
-        let choice = Select::new(texts::choose_action(), choices)
-            .prompt()
-            .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+        let Some(choice) = prompt_select(texts::choose_action(), choices)? else {
+            break;
+        };
 
         if choice == texts::view_current_provider() {
             view_provider_detail(&state, app_type, &current_id)?;
@@ -154,9 +152,9 @@ fn view_provider_detail(
             // Show action menu
             println!();
             let choices = vec![texts::speedtest_endpoint(), texts::back()];
-            let choice = Select::new(texts::choose_action(), choices)
-                .prompt()
-                .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+            let Some(choice) = prompt_select(texts::choose_action(), choices)? else {
+                break;
+            };
 
             if choice == texts::speedtest_endpoint() {
                 speedtest_provider_interactive(state, app_type, current_id, provider)?;
@@ -291,9 +289,9 @@ fn switch_provider_interactive(
         return Ok(());
     }
 
-    let choice = Select::new(texts::select_provider_to_switch(), provider_choices)
-        .prompt()
-        .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+    let Some(choice) = prompt_select(texts::select_provider_to_switch(), provider_choices)? else {
+        return Ok(());
+    };
 
     let id = choice
         .split('(')
@@ -328,9 +326,9 @@ fn delete_provider_interactive(
         return Ok(());
     }
 
-    let choice = Select::new(texts::select_provider_to_delete(), deletable)
-        .prompt()
-        .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+    let Some(choice) = prompt_select(texts::select_provider_to_delete(), deletable)? else {
+        return Ok(());
+    };
 
     let id = choice
         .split('(')
@@ -338,10 +336,10 @@ fn delete_provider_interactive(
         .and_then(|s| s.strip_suffix(')'))
         .ok_or_else(|| AppError::Message("Invalid choice".to_string()))?;
 
-    let confirm = Confirm::new(&texts::confirm_delete(id))
-        .with_default(false)
-        .prompt()
-        .map_err(|_| AppError::Message("Confirmation failed".to_string()))?;
+    let confirm_prompt = texts::confirm_delete(id);
+    let Some(confirm) = prompt_confirm(&confirm_prompt, false)? else {
+        return Ok(());
+    };
 
     if !confirm {
         println!("\n{}", info(texts::cancelled()));
@@ -426,9 +424,9 @@ fn edit_provider_interactive(
         .map(|(id, provider)| format!("{} ({})", provider.name, id))
         .collect();
 
-    let selection = Select::new(texts::select_provider_to_edit(), choices)
-        .prompt()
-        .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+    let Some(selection) = prompt_select(texts::select_provider_to_edit(), choices)? else {
+        return Ok(());
+    };
 
     // 从 "Name (id)" 格式中提取 ID
     let selected_id = selection
@@ -444,9 +442,9 @@ fn edit_provider_interactive(
         EditMode::Cancel,
     ];
 
-    let edit_mode = Select::new(texts::choose_edit_mode(), edit_mode_choices)
-        .prompt()
-        .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+    let Some(edit_mode) = prompt_select(texts::choose_edit_mode(), edit_mode_choices)? else {
+        return Ok(());
+    };
 
     match edit_mode {
         EditMode::Interactive => {
@@ -491,12 +489,13 @@ fn edit_provider_with_json_editor(
         }
         AppType::Codex => {
             // Codex: ask user which file to edit
-            let file_choice = Select::new(
+            let Some(file_choice) = prompt_select(
                 "Select config file to edit:",
                 vec![CodexConfigFile::Auth, CodexConfigFile::Config],
-            )
-            .prompt()
-            .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+            )?
+            else {
+                return Ok(());
+            };
 
             match file_choice {
                 CodexConfigFile::Auth => {
@@ -625,10 +624,9 @@ fn edit_provider_with_json_editor(
         display_provider_summary(&updated_provider, app_type);
 
         // 6. Confirm save
-        let confirm = Confirm::new(texts::confirm_save_changes())
-            .with_default(false)
-            .prompt()
-            .map_err(|e| AppError::Message(format!("Confirmation failed: {}", e)))?;
+        let Some(confirm) = prompt_confirm(texts::confirm_save_changes(), false)? else {
+            return Ok(());
+        };
 
         if !confirm {
             println!("\n{}", info(texts::cancelled()));
@@ -659,10 +657,7 @@ fn edit_provider_with_json_editor(
 
 /// Helper function to prompt for retry
 fn retry_prompt() -> Result<bool, AppError> {
-    Confirm::new(texts::retry_editing())
-        .with_default(true)
-        .prompt()
-        .map_err(|e| AppError::Message(format!("Confirmation failed: {}", e)))
+    Ok(prompt_confirm(texts::retry_editing(), true)?.unwrap_or(false))
 }
 
 /// Open external editor for content editing

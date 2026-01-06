@@ -1,5 +1,3 @@
-use inquire::{Confirm, Select};
-
 use crate::app_config::AppType;
 use crate::cli::i18n::texts;
 use crate::cli::ui::{create_table, highlight, info, success};
@@ -7,7 +5,7 @@ use crate::error::AppError;
 use crate::services::PromptService;
 use crate::store::AppState;
 
-use super::utils::{clear_screen, get_state, pause};
+use super::utils::{clear_screen, get_state, pause, prompt_confirm, prompt_select};
 
 pub fn manage_prompts_menu(app_type: &AppType) -> Result<(), AppError> {
     loop {
@@ -59,9 +57,9 @@ pub fn manage_prompts_menu(app_type: &AppType) -> Result<(), AppError> {
             texts::back_to_main(),
         ];
 
-        let choice = Select::new(texts::choose_action(), choices)
-            .prompt()
-            .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+        let Some(choice) = prompt_select(texts::choose_action(), choices)? else {
+            break;
+        };
 
         if choice == texts::prompts_view_current() {
             view_current_prompt_interactive(&state, app_type, &prompts)?;
@@ -125,9 +123,9 @@ fn show_prompt_content_interactive(
         .map(|(id, p)| format!("{} ({})", p.name, id))
         .collect();
 
-    let selected = Select::new(texts::select_prompt_to_view(), prompt_choices)
-        .prompt()
-        .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+    let Some(selected) = prompt_select(texts::select_prompt_to_view(), prompt_choices)? else {
+        return Ok(());
+    };
 
     let prompt_id = selected
         .split('(')
@@ -170,9 +168,9 @@ fn delete_prompt_interactive(
         return Ok(());
     }
 
-    let selected = Select::new(texts::select_prompt_to_delete(), deletable)
-        .prompt()
-        .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+    let Some(selected) = prompt_select(texts::select_prompt_to_delete(), deletable)? else {
+        return Ok(());
+    };
 
     let prompt_id = selected
         .split('(')
@@ -180,10 +178,10 @@ fn delete_prompt_interactive(
         .and_then(|s| s.strip_suffix(')'))
         .ok_or_else(|| AppError::Message("Invalid selection".to_string()))?;
 
-    let confirm = Confirm::new(&texts::confirm_delete(prompt_id))
-        .with_default(false)
-        .prompt()
-        .map_err(|_| AppError::Message("Confirmation failed".to_string()))?;
+    let confirm_prompt = texts::confirm_delete(prompt_id);
+    let Some(confirm) = prompt_confirm(&confirm_prompt, false)? else {
+        return Ok(());
+    };
 
     if !confirm {
         println!("\n{}", info(texts::cancelled()));
@@ -214,9 +212,9 @@ fn switch_prompt_interactive(
         .map(|(id, p)| format!("{} ({})", p.name, id))
         .collect();
 
-    let choice = Select::new(texts::select_prompt_to_activate(), prompt_choices)
-        .prompt()
-        .map_err(|_| AppError::Message("Selection cancelled".to_string()))?;
+    let Some(choice) = prompt_select(texts::select_prompt_to_activate(), prompt_choices)? else {
+        return Ok(());
+    };
 
     let id = choice
         .split('(')
