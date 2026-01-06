@@ -111,6 +111,42 @@ impl LiveSnapshot {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
+    use std::ffi::OsString;
+    use std::path::Path;
+    use std::sync::RwLock;
+    use tempfile::TempDir;
+
+    struct EnvGuard {
+        old_home: Option<OsString>,
+        old_userprofile: Option<OsString>,
+    }
+
+    impl EnvGuard {
+        fn set_home(home: &Path) -> Self {
+            let old_home = std::env::var_os("HOME");
+            let old_userprofile = std::env::var_os("USERPROFILE");
+            std::env::set_var("HOME", home);
+            std::env::set_var("USERPROFILE", home);
+            Self {
+                old_home,
+                old_userprofile,
+            }
+        }
+    }
+
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            match &self.old_home {
+                Some(value) => std::env::set_var("HOME", value),
+                None => std::env::remove_var("HOME"),
+            }
+            match &self.old_userprofile {
+                Some(value) => std::env::set_var("USERPROFILE", value),
+                None => std::env::remove_var("USERPROFILE"),
+            }
+        }
+    }
 
     #[test]
     fn validate_provider_settings_allows_missing_auth_for_codex() {
@@ -122,6 +158,42 @@ mod tests {
         );
         ProviderService::validate_provider_settings(&AppType::Codex, &provider)
             .expect("Codex auth is optional when using OpenAI auth or env_key");
+    }
+
+    #[test]
+    #[serial]
+    fn add_first_provider_sets_current() {
+        let temp_home = TempDir::new().expect("create temp home");
+        let _env = EnvGuard::set_home(temp_home.path());
+
+        let mut config = MultiAppConfig::default();
+        config.ensure_app(&AppType::Claude);
+        let state = AppState {
+            config: RwLock::new(config),
+        };
+
+        let provider = Provider::with_id(
+            "p1".to_string(),
+            "First".to_string(),
+            json!({
+                "env": {
+                    "ANTHROPIC_AUTH_TOKEN": "token",
+                    "ANTHROPIC_BASE_URL": "https://claude.example"
+                }
+            }),
+            None,
+        );
+
+        ProviderService::add(&state, AppType::Claude, provider).expect("add should succeed");
+
+        let cfg = state.config.read().expect("read config");
+        let manager = cfg
+            .get_manager(&AppType::Claude)
+            .expect("claude manager");
+        assert_eq!(
+            manager.current, "p1",
+            "first provider should become current to avoid empty current provider"
+        );
     }
 
     #[test]
@@ -613,11 +685,16 @@ impl ProviderService {
                 .get_manager_mut(&app_type_clone)
                 .ok_or_else(|| Self::app_not_found(&app_type_clone))?;
 
-            let is_current = manager.current == provider_clone.id;
+            let was_empty = manager.providers.is_empty();
             manager
                 .providers
                 .insert(provider_clone.id.clone(), provider_clone.clone());
 
+            if was_empty && manager.current.is_empty() {
+                manager.current = provider_clone.id.clone();
+            }
+
+            let is_current = manager.current == provider_clone.id;
             let action = if is_current {
                 let backup = Self::capture_live_snapshot(&app_type_clone)?;
                 Some(PostCommitAction {
