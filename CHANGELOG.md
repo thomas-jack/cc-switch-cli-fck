@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.1.4] - 2026-01-06
+
+### Fixed
+
+- **Providers (Interactive)**: When adding the first provider for an app, auto-set it as the current provider (prevents “current provider is empty” and unlocks switching). Fixes #10.
+
 ## [4.1.3] - 2026-01-06
 
 ### Fixed
