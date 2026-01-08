@@ -15,6 +15,10 @@ use crate::services::{ProviderService, SpeedtestService};
 use crate::store::AppState;
 use inquire::{Confirm, Select, Text};
 
+fn supports_official_provider(app_type: &AppType) -> bool {
+    matches!(app_type, AppType::Codex)
+}
+
 #[derive(Subcommand)]
 pub enum ProviderCommand {
     /// List all providers
@@ -254,7 +258,7 @@ fn add_provider(app_type: AppType) -> Result<(), AppError> {
     println!("{}", highlight("Add New Provider"));
     println!("{}", "=".repeat(50));
 
-    let add_mode = if matches!(app_type, AppType::Claude | AppType::Codex) {
+    let add_mode = if supports_official_provider(&app_type) {
         let choices = vec![
             texts::add_official_provider(),
             texts::add_third_party_provider(),
@@ -301,20 +305,6 @@ fn add_provider(app_type: AppType) -> Result<(), AppError> {
                 ));
             }
             (name, Some("https://openai.com".to_string()))
-        }
-        (AppType::Claude, ProviderAddMode::Official) => {
-            let name = Text::new(texts::provider_name_label())
-                .with_placeholder("Anthropic")
-                .with_help_message(texts::provider_name_help())
-                .prompt()
-                .map_err(|e| AppError::Message(texts::input_failed_error(&e.to_string())))?;
-            let name = name.trim().to_string();
-            if name.is_empty() {
-                return Err(AppError::InvalidInput(
-                    texts::provider_name_empty_error().to_string(),
-                ));
-            }
-            (name, Some("https://www.anthropic.com".to_string()))
         }
         _ => prompt_basic_fields(None)?,
     };
@@ -371,6 +361,18 @@ fn add_provider(app_type: AppType) -> Result<(), AppError> {
     );
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn supports_official_provider_is_codex_only() {
+        assert!(supports_official_provider(&AppType::Codex));
+        assert!(!supports_official_provider(&AppType::Claude));
+        assert!(!supports_official_provider(&AppType::Gemini));
+    }
 }
 
 fn edit_provider(app_type: AppType, id: &str) -> Result<(), AppError> {
