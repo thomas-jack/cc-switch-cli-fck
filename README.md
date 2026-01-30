@@ -123,19 +123,25 @@ cc-switch prompts delete <id>        # Delete prompt
 
 ### 🎯 Skills Management
 
-⚠️ **Note: Not yet implemented in v4.1.x** - This feature is planned for future releases.
-
 Manage and extend Claude Code/Codex/Gemini capabilities with community skills.
 
-**Features:** Search skill marketplace, install/uninstall, repository management, skill information.
+**Features:** SSOT-based skills store, multi-app enable/disable, sync to app directories, unmanaged scan/import, repo discovery.
 
 ```bash
 cc-switch skills list                # List installed skills
 cc-switch skills search <query>      # Search available skills
 cc-switch skills install <name>      # Install a skill
 cc-switch skills uninstall <name>    # Uninstall a skill
+cc-switch skills enable <name>       # Enable for current app (--app)
+cc-switch skills disable <name>      # Disable for current app (--app)
 cc-switch skills info <name>         # Show skill information
-cc-switch skills repos               # Manage skill repositories
+cc-switch skills sync                # Sync enabled skills to app dirs
+cc-switch skills sync-method [m]     # Show/set sync method (auto|symlink|copy)
+cc-switch skills scan-unmanaged      # Scan unmanaged skills in app dirs
+cc-switch skills import-from-apps    # Import unmanaged skills into SSOT
+cc-switch skills repos list          # List skill repositories
+cc-switch skills repos add <repo>    # Add repo (owner/name[@branch] or GitHub URL)
+cc-switch skills repos remove <repo> # Remove repo (owner/name or GitHub URL)
 ```
 
 ### ⚙️ Configuration Management

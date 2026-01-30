@@ -4,7 +4,7 @@
 >
 > **对齐基线（用于复现差异）**
 > - `cc-switch-cli`：`a6df9cb1680ab59afda1576bfb2636b519359eb9`
-> - `cc-switch`（upstream）：`08d9bb4cab08c41ac107a550f9ca12267c846d15`
+> - `cc-switch`（upstream）：`08d9bb4cab08c41ac107a550f9ca12267c846d15` 位于: .upstream/cc-switch
 > - 生成日期：2026-01-29
 
 ---
@@ -16,7 +16,7 @@
 - ✅ 文档补充：说明“未初始化时跳过 live sync（默认策略）”— `bd42381`
 - ✅ 额外对齐：deeplink provider 导入能力（与 upstream 协议兼容的解析 + 导入）— `df101b0`、`dd39ca7`
 - ✅ 已落实：移除 OpenCode 范围（计划层面）— `53aca67`
-- ⏳ 未开始：Phase 3（Skills 系统重做）
+- ✅ 已完成：Phase 3（Skills 系统重做，SSOT+sync，无 DB；含 CLI/TUI 入口）— `bb422d6`
 - ⏳ 未开始：Phase 4（Proxy/Failover/Stream Check/Usage）
 
 > 注：上述 commit 为本仓库 `cc-switch-cli` 的提交号，用于追溯实现与回归依据。
@@ -64,6 +64,58 @@
 upstream 有而 CLI 缺：`proxy/global_proxy`、`failover`、`stream_check`、`usage`、`settings`、`import_export(sql)` 等。  
 CLI 特有：`interactive(TUI)`、`completions`。
 
+### 2.6 上游实现速记（作为对齐输入）
+
+> 目的：把 upstream 的“真实行为/实现路径”记录下来，避免只凭 README 估计；后续 Phase 3/4 以此为准对齐。
+>
+> 注：upstream 的实现包含 DB（SQLite）与 GUI/Tauri 相关命令层；我们在 CLI 侧 **暂不引入 DB**，但会尽量复刻其 SSOT 与文件同步语义。
+
+#### 2.6.1 MCP 的 should_sync 策略（避免创建未初始化目录）
+
+upstream 在各 app 的 MCP 同步模块里都有 `should_sync_*_mcp()`：
+- Claude：当 `~/.claude` 目录或 `~/.claude.json` 文件存在时才允许写入/删除 MCP（否则跳过，不创建任何文件/目录）。
+- Codex：当 `~/.codex` 目录存在时才允许写入/删除 MCP（否则跳过）。
+- Gemini：当 `~/.gemini` 目录存在时才允许写入/删除 MCP（否则跳过）。
+
+参考实现：
+- `.upstream/cc-switch/src-tauri/src/mcp/claude.rs`（`should_sync_claude_mcp()`）
+- `.upstream/cc-switch/src-tauri/src/mcp/codex.rs`（`should_sync_codex_mcp()`）
+- `.upstream/cc-switch/src-tauri/src/mcp/gemini.rs`（`should_sync_gemini_mcp()`）
+
+#### 2.6.2 Provider live 写入的默认行为（会创建目录）
+
+upstream 的 JSON 写入工具会默认 `create_dir_all(parent)`，因此 provider live 写入通常会“顺带创建”目标 app 目录（例如 `~/.claude` / `~/.codex` / `~/.gemini`）。  
+参考实现：
+- `.upstream/cc-switch/src-tauri/src/config.rs`（`write_json_file()`）
+- `.upstream/cc-switch/src-tauri/src/services/provider/live.rs`（`write_live_snapshot()` / `sync_current_to_live()`）
+
+对齐结论（CLI 侧）：我们已经采用更保守的默认策略（auto）来避免“目标 app 未初始化时创建目录/文件”，这在用户体验上更安全；但会保持一个明确的 warning 提示用户先初始化目标 app（与 upstream 的注释意图一致）。
+
+#### 2.6.3 Skills（v3.10.0+）的统一管理架构（SSOT + 同步）
+
+upstream 的 skills 体系核心点：
+- **SSOT（单一事实源）目录**：`~/.cc-switch/skills/`
+  - `SkillService::get_ssot_dir()` 会确保目录存在。
+- **应用 skills 目录**：默认 `~/.claude/skills`、`~/.codex/skills`、`~/.gemini/skills`（以及 OpenCode：`~/.config/opencode/skills`）
+  - 支持从 settings 中读取 override dir。
+- **同步策略**：`SyncMethod = auto/symlink/copy`
+  - `auto`：优先创建 symlink，失败回退到 copy；同步前会清理目的路径。
+- **未管理技能扫描 + 导入**：
+  - `scan_unmanaged()`：扫描各 app skills 目录中“不在 managed 列表里的技能目录”（跳过隐藏目录 `.system` 等）。
+  - `import_from_apps()`：把指定目录从 app skills 目录复制进 SSOT，并记录“在哪些 app 中发现/启用”。
+- **一次性迁移（自动导入 SSOT）**：
+  - 启动时若 DB flag `skills_ssot_migration_pending` 为 true 且 skills 表为空，会扫描各 app skills 目录，将技能复制进 SSOT 并重建记录；成功后清掉 flag。
+
+参考实现：
+- `.upstream/cc-switch/src-tauri/src/services/skill.rs`（SSOT、sync、scan/import、migrate）
+- `.upstream/cc-switch/src-tauri/src/lib.rs`（启动时触发 skills_ssot_migration_pending）
+- `.upstream/cc-switch/src-tauri/src/init_status.rs`（迁移结果上报）
+
+对齐结论（CLI 侧，暂不引入 DB）：
+- 文件层面：复刻 SSOT 路径与同步行为（Auto→symlink/copy fallback）。
+- 状态层面：用 `config.json` 扩展字段或引入 `~/.cc-switch/skills.json` 作为“轻量 managed 列表 + 启用状态 + 仓库列表”的持久化（替代 DB 表）。
+- 迁移层面：用“文件型 pending 标志/版本号”替代 DB flag；并保留 upstream 的安全护栏：当本地 managed 列表非空时不自动导入，避免覆盖/重建用户现有管理状态。
+
 ---
 
 ## 3. 关键决策点（需要先定，否则路线会分叉）
@@ -84,6 +136,27 @@ CLI 特有：`interactive(TUI)`、`completions`。
 这里很容易“对齐上游”反而破坏 CLI 现有兼容性：
 - **保持 CLI 行为（推荐）**：继续支持缺失 `auth.json`（credential store/env_key/requires_openai_auth 等路径），但在导入/upsert 时补充更明确的校验与提示。
 - **强行同构 upstream**：把 auth 设为强制，会导致现有测试与用户配置失效，除非同时设计迁移策略。
+
+### D4：Skills 的“managed 状态”落盘位置（不引入 DB 前提下）
+选项：
+- **A**：写回 `~/.cc-switch/config.json`（单文件 SSOT；改动面更集中）。
+- **B（推荐）**：单独维护 `~/.cc-switch/skills.json`（文件边界清晰、便于迁移与回滚）。
+
+✅ **已选：B**
+
+### D5：Skills 同步时是否“自动创建 app 目录”
+选项：
+- **A（更安全）**：目标 app 未初始化时跳过写入，并提示用户先初始化（不创建 `~/.codex` / `~/.gemini` 等目录）。
+- **B（对齐 upstream 风格）**：执行 skills sync 时允许创建目标 `~/.{app}/skills` 目录（必要时创建上层目录）。
+
+✅ **已选：B**
+
+### D6：Skills 同步的触发时机
+选项：
+- **A（更克制）**：仅在 `cc-switch skills ...` 相关命令（install/enable/disable/sync）时触发。
+- **B（对齐 upstream）**：在 `provider switch` / “同步到 live” 等流程中也触发 skills sync，确保 live 状态完整。
+
+✅ **已选：B**
 
 ---
 
@@ -132,11 +205,15 @@ CLI 特有：`interactive(TUI)`、`completions`。
 - 把 CLI 的 skills 从“Claude 单目录 + 占位命令”提升为 upstream 同级别能力：SSOT + 多 app 同步 + 扫描未管理技能。
 
 **建议任务**
-1) 建立 skills SSOT：`~/.cc-switch/skills/` 作为统一安装目录；新增轻量 index（`skills.json` 或扩展 `config.json`）。
-2) 实现 `sync_to_apps`：优先 symlink，失败 fallback copy；Windows 特殊处理。
-3) 实现 `scan_unmanaged`：扫描各 app 的 skills 目录，将不在 index 的标记为 unmanaged。
-4) CLI 命令补齐：`cc-switch skills discover/install/uninstall/enable/disable/sync/scan-unmanaged/import-from-apps` 等。
-5) 迁移：从旧 `SkillStore` 迁到新结构（建议“新增新字段 + 保留旧字段读取 + 一次性迁移”）。
+- [x] 建立 skills SSOT：`~/.cc-switch/skills/`（与 upstream 一致）；新增轻量 index：`~/.cc-switch/skills.json`（替代 DB）。
+- [x] 对齐 app skills 目录与 override 规则（Claude/Codex/Gemini），并保持“不触碰真实用户数据”的测试隔离。
+- [x] 实现 `sync_to_apps`：`SyncMethod=auto`（优先 symlink，失败 fallback copy）；支持 `auto/symlink/copy` 切换；同步前清理目标路径（与 upstream 一致）；并按 D5 在执行 sync 时允许创建目标 app 的 `skills` 目录。
+- [x] 实现 `scan_unmanaged`：扫描各 app 的 skills 目录，将不在 index 的标记为 unmanaged（跳过隐藏目录，例如 `.system`）。
+- [x] 实现 `import_from_apps`：将 unmanaged skills 复制到 SSOT，并写入 index（记录“在哪些 app 中启用/发现”）。
+- [x] CLI 命令补齐：`cc-switch skills discover/list/install/uninstall/enable/disable/sync/sync-method/scan-unmanaged/import-from-apps/info/repos`（命令名可贴近 upstream，但保持 CLI/TUI 一致入口）。
+- [x] TUI 入口补齐：主菜单新增 `🧩 Manage Skills`，并提供 discover/install/uninstall/enable/disable/info/sync/sync-method/scan/import/repos 等按钮。
+- [x] 触发对齐：按 D6，在 `provider switch` / “同步到 live” 等流程中触发 skills sync（必要时创建 app skills 目录）。
+- [x] 迁移（无 DB 版本）：从旧 `SkillStore`（Claude 单目录/旧文件）迁到新结构；提供一次性自动导入的安全护栏（managed 列表非空则不自动导入）。
 
 **验收标准**
 - `skills` 子命令可用且不破坏既有 Claude skills。

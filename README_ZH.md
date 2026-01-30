@@ -123,19 +123,25 @@ cc-switch prompts delete <id>        # 删除提示词
 
 ### 🎯 Skills 管理
 
-⚠️ **注意：v4.1.x 版本暂未实现** - 此功能计划在未来版本中推出。
-
 通过社区技能扩展 Claude Code/Codex/Gemini 的能力。
 
-**功能：** 搜索技能市场、安装/卸载、仓库管理、技能信息查看。
+**功能：** SSOT 技能仓库、多应用启用/禁用、同步到应用目录、扫描/导入未管理技能、仓库发现。
 
 ```bash
 cc-switch skills list                # 列出已安装技能
 cc-switch skills search <query>      # 搜索可用技能
 cc-switch skills install <name>      # 安装技能
 cc-switch skills uninstall <name>    # 卸载技能
+cc-switch skills enable <name>       # 为当前应用启用（配合 --app）
+cc-switch skills disable <name>      # 为当前应用禁用（配合 --app）
 cc-switch skills info <name>         # 显示技能信息
-cc-switch skills repos               # 管理技能仓库
+cc-switch skills sync                # 同步已启用技能到应用目录
+cc-switch skills sync-method [m]     # 查看/设置同步方式（auto|symlink|copy）
+cc-switch skills scan-unmanaged      # 扫描未管理技能
+cc-switch skills import-from-apps    # 导入未管理技能到 SSOT
+cc-switch skills repos list          # 查看仓库列表
+cc-switch skills repos add <repo>    # 添加仓库（owner/name[@branch] 或 GitHub URL）
+cc-switch skills repos remove <repo> # 移除仓库（owner/name 或 GitHub URL）
 ```
 
 ### ⚙️ 配置管理
