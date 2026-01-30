@@ -16,7 +16,7 @@
 - ✅ 文档补充：说明“未初始化时跳过 live sync（默认策略）”— `bd42381`
 - ✅ 额外对齐：deeplink provider 导入能力（与 upstream 协议兼容的解析 + 导入）— `df101b0`、`dd39ca7`
 - ✅ 已落实：移除 OpenCode 范围（计划层面）— `53aca67`
-- ✅ 已完成：Phase 3（Skills 系统重做，SSOT+sync，无 DB；含 CLI/TUI 入口）— `bb422d6`
+- ✅ 已完成：Phase 3（Skills 系统重做，SSOT+sync，无 DB；含 CLI/TUI 入口）— `bb422d6`、`f2e18eb`
 - ⏳ 未开始：Phase 4（Proxy/Failover/Stream Check/Usage）
 
 > 注：上述 commit 为本仓库 `cc-switch-cli` 的提交号，用于追溯实现与回归依据。
