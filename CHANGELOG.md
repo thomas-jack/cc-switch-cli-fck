@@ -7,6 +7,22 @@ All notable changes to CC Switch CLI will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.0] - 2026-02-01
+
+### Added
+
+- **Interactive (TUI)**: New provider/MCP add & edit forms (templates + fields + JSON preview).
+- **Providers (TUI)**: Per-provider toggle to attach (or skip) the common config snippet when applying.
+
+### Changed
+
+- **Interactive (TUI)**: API keys are shown in add/edit forms (masked only in provider detail view).
+- **Interactive (TUI)**: JSON preview hides cc-switch internal metadata fields.
+
+### Fixed
+
+- **Interactive (TUI)**: Switching from an official template back to Custom now clears template-filled values.
+
 ## [4.4.0] - 2026-01-31
 
 ### Added
