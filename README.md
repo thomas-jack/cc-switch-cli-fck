@@ -26,6 +26,27 @@ This project is a **CLI fork** of [CC-Switch](https://github.com/farion1231/cc-s
 
 ---
 
+## ❤️ Sponsor
+
+<table>
+  <tr>
+    <td width="180">
+      <a href="https://www.packyapi.com/register?aff=cc-switch-cli">
+        <img src="assets/partners/logos/packycode.png" alt="PackyCode" width="150">
+      </a>
+    </td>
+    <td>
+      Thanks to <b>PackyCode</b> for sponsoring this project!<br/>
+      Website: <a href="https://www.packyapi.com">https://www.packyapi.com</a><br/>
+      Exclusive offer for CC-Switch CLI users: register via
+      <a href="https://www.packyapi.com/register?aff=cc-switch-cli">this link</a>
+      and use promo code <code>cc-switch-cli</code> when recharging to get <b>10% off</b>.
+    </td>
+  </tr>
+</table>
+
+---
+
 ## 📸 Screenshots
 
 <div align="center">
@@ -111,6 +132,17 @@ cc-switch provider duplicate <id>    # Duplicate a provider
 cc-switch provider delete <id>       # Delete provider
 cc-switch provider speedtest <id>    # Test API latency
 ```
+
+#### PackyCode preset (Sponsor)
+
+In the TUI "Add Provider" form, choose the `PackyCode` template to prefill endpoints:
+
+- Website: `https://www.packyapi.com`
+- Register: `https://www.packyapi.com/register?aff=cc-switch-cli`
+- Promo code: `cc-switch-cli` (10% off)
+- Claude (Anthropic): `https://www.packyapi.com`
+- Codex (OpenAI): `https://www.packyapi.com/v1`
+- Gemini: `https://www.packyapi.com`
 
 ### 🛠️ MCP Server Management
 

@@ -26,6 +26,27 @@
 
 ---
 
+## ❤️赞助商
+
+<table>
+  <tr>
+    <td width="180">
+      <a href="https://www.packyapi.com/register?aff=cc-switch-cli">
+        <img src="assets/partners/logos/packycode.png" alt="PackyCode" width="150">
+      </a>
+    </td>
+    <td>
+      感谢 <b>PackyCode</b> 赞助本项目！<br/>
+      官网：<a href="https://www.packyapi.com">https://www.packyapi.com</a><br/>
+      CC-Switch CLI 专属优惠：通过
+      <a href="https://www.packyapi.com/register?aff=cc-switch-cli">此链接</a>
+      注册，并在充值时填写优惠码 <code>cc-switch-cli</code>，即可享受 <b>9 折优惠</b>。
+    </td>
+  </tr>
+</table>
+
+---
+
 ## 📸 截图预览
 
 <div align="center">
@@ -111,6 +132,17 @@ cc-switch provider duplicate <id>    # 复制供应商
 cc-switch provider delete <id>       # 删除供应商
 cc-switch provider speedtest <id>    # 测试 API 延迟
 ```
+
+#### PackyCode 预设（赞助商）
+
+在新版 TUI 的「添加供应商」表单中，可选择 `PackyCode` 模板自动填充端点：
+
+- 官网：`https://www.packyapi.com`
+- 注册链接：`https://www.packyapi.com/register?aff=cc-switch-cli`
+- 优惠码：`cc-switch-cli`（9 折）
+- Claude（Anthropic）：`https://www.packyapi.com`
+- Codex（OpenAI）：`https://www.packyapi.com/v1`
+- Gemini：`https://www.packyapi.com`
 
 ### 🛠️ MCP 服务器管理
 
